@@ -69,8 +69,30 @@ const StaffLogs: React.FC<StaffLogsProps> = ({
       .slice(0, 5);
   }, [searchQuery, sessions]);
 
+  const { activeCount, inactiveCount } = useMemo(() => {
+    const activeIds = new Set(sessions.filter(s => s.timeOut === 'ONSITE').map(s => s.subjectId));
+    return {
+      activeCount: activeIds.size,
+      inactiveCount: employees.length - activeIds.size,
+    };
+  }, [sessions, employees]);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="p-6 bg-emerald-50 border-2 border-emerald-100 rounded-2xl">
+          <p className="text-[10px] font-black uppercase text-emerald-800 tracking-widest">Active Personnel</p>
+          <p className="text-4xl font-black text-emerald-700">{activeCount}</p>
+        </div>
+        <div className="p-6 bg-slate-50 border-2 border-slate-100 rounded-2xl">
+          <p className="text-[10px] font-black uppercase text-slate-800 tracking-widest">Inactive Personnel</p>
+          <p className="text-4xl font-black text-slate-700">{inactiveCount}</p>
+        </div>
+        <div className="p-6 bg-blue-50 border-2 border-blue-100 rounded-2xl">
+          <p className="text-[10px] font-black uppercase text-blue-800 tracking-widest">Total Sessions Logged</p>
+          <p className="text-4xl font-black text-blue-700">{sessions.length}</p>
+        </div>
+      </div>
       <div className="flex flex-col xl:flex-row gap-4 items-stretch xl:items-center justify-between">
         <div className="flex flex-col md:flex-row gap-4 items-stretch">
           <div className="relative w-full md:w-80">

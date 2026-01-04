@@ -280,6 +280,7 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                 </td>
                 <td className="px-8 py-5 text-right">
                   <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => onUpdateEmployee(emp.id, { ...emp, totalDaysWorked: 0 })} className="p-2.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all"><Calendar size={18} /></button>
                     <button onClick={() => setEditingEmployee(emp)} className="p-2.5 text-slate-400 hover:text-black hover:bg-slate-100 rounded-xl transition-all"><Edit3 size={18} /></button>
                     <button onClick={() => setShowDeleteConfirm(emp.id)} className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 size={18} /></button>
                   </div>

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { UserPlus, Flag, Bell, Calendar, DoorOpen, Fingerprint, Keyboard, Globe, CheckCircle2, Megaphone } from 'lucide-react';
 import CameraModal from '../components/CameraModal';
+import PinModal from '../components/PinModal';
 import VisitorModal from '../components/VisitorModal';
 import Notification from '../components/Notification';
 import SuccessModal from '../components/SuccessModal';
@@ -9,6 +10,7 @@ import { dataService } from '../services/dataService';
 import { AttendanceAction, Notice } from '../types';
 
 const Home: React.FC = () => {
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalAction, setModalAction] = useState<AttendanceAction>(AttendanceAction.LOGIN);
   const [isVisitorModalOpen, setIsVisitorModalOpen] = useState(false);
@@ -212,7 +214,7 @@ const Home: React.FC = () => {
           <div className="flex-grow flex flex-col gap-4 overflow-hidden">
              <div className="grid grid-cols-2 gap-4">
                <button 
-                onClick={() => triggerAuthModal(AttendanceAction.GATE_OUT)}
+                onClick={() => setIsPinModalOpen(true)}
                 className="group p-6 bg-blue-600 hover:bg-blue-700 text-white rounded-[2rem] flex flex-col items-center justify-center gap-4 transition-all active:scale-[0.98] shadow-lg"
                >
                   <DoorOpen size={24} />
@@ -257,6 +259,17 @@ const Home: React.FC = () => {
         </div>
       </div>
 
+      <PinModal
+        isOpen={isPinModalOpen}
+        onClose={() => setIsPinModalOpen(false)}
+        onAuthSuccess={(emp, dur, act) => {
+          setLastUser({ name: emp.name, id: emp.id });
+          setLastDuration(dur);
+          setModalAction(act || modalAction);
+          setShowSuccessModal(true);
+          setIsPinModalOpen(false);
+        }}
+      />
       <CameraModal 
         isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onCapture={() => {}}
         onAuthSuccess={(emp, dur, act) => { 

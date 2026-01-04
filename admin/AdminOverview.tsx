@@ -120,32 +120,34 @@ const AdminOverview: React.FC<AdminOverviewProps> = ({ employees, logs, onQuickA
     };
   }, [employees, logs]);
 
-  const chartData = useMemo(() => {
-    const startH = parseInt(settings.dayStart.split(':')[0]) || 6;
-    const endH = parseInt(settings.dayEnd.split(':')[0]) || 18;
-    const hoursCount = Math.max(1, endH - startH + 1);
-    
-    const hours = Array.from({ length: hoursCount }, (_, i) => i + startH);
-    
-    // Sync UTC threshold with stats for consistency
-    const startOfTodayUTC = new Date();
-    startOfTodayUTC.setUTCHours(0, 0, 0, 0);
-    const todayThreshold = startOfTodayUTC.getTime();
+  const { dayChartData, nightChartData } = useMemo(() => {
+    const dayHours = Array.from({ length: 12 }, (_, i) => i + 6); // 6:00 - 17:00
+    const nightHours = [18, 19, 20, 21, 22, 23, 0, 1, 2, 3, 4, 5]; // 18:00 - 05:00
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const todayThreshold = startOfToday.getTime();
 
     const todayLogs = logs.filter(l => {
       const ts = stats.normalizeTs(l.timestamp);
       return ts >= todayThreshold && l.action === AttendanceAction.LOGIN && l.status === LogStatus.SUCCESS;
     });
-    
-    return hours.map(h => {
-      const count = todayLogs.filter(l => {
-        // Use local hours for visualization but UTC for the threshold filter above
-        const logDate = new Date(stats.normalizeTs(l.timestamp));
-        return logDate.getHours() === h;
-      }).length;
-      return { hour: `${h}:00`, count };
-    });
-  }, [logs, settings.dayStart, settings.dayEnd, stats]);
+
+    const processShift = (hours: number[]) => {
+      return hours.map(h => {
+        const count = todayLogs.filter(l => {
+          const logDate = new Date(stats.normalizeTs(l.timestamp));
+          return logDate.getHours() === h;
+        }).length;
+        return { hour: `${String(h).padStart(2, '0')}:00`, count };
+      });
+    };
+
+    return {
+      dayChartData: processShift(dayHours),
+      nightChartData: processShift(nightHours),
+    };
+  }, [logs, stats]);
 
   const modalList = useMemo(() => {
     let list = employees;
@@ -165,23 +167,71 @@ const AdminOverview: React.FC<AdminOverviewProps> = ({ employees, logs, onQuickA
     return list;
   }, [modalMode, employees, stats, modalSearch]);
 
-  const chartHeight = 150;
+  const chartHeight = 180;
   const chartWidth = 800;
-  const maxCount = Math.max(...chartData.map(d => d.count), 5);
-  const strokeDash = 251.3;
+
+  const Chart = ({ title, data, gradientId, gradientColor1, gradientColor2 }: { title: string, data: any[], gradientId: string, gradientColor1: string, gradientColor2: string }) => {
+    const maxCount = Math.max(...data.map(d => d.count), 5);
+    return (
+      <div className="bg-white p-10 rounded-[3rem] border border-gray-100 shadow-sm">
+        <div className="flex justify-between items-center mb-16">
+          <div>
+            <h3 className="text-3xl font-black text-black uppercase tracking-tight">{title}</h3>
+            <p className="text-sm text-gray-400 font-bold uppercase tracking-widest mt-1">Clock-in Volume by Hour</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="px-5 py-2.5 bg-gray-50 rounded-xl text-sm font-black uppercase text-black flex items-center gap-2 border border-gray-100">
+              <Calendar size={16} className="text-black" /> Today: {new Date().toLocaleDateString('en-GB')}
+            </div>
+          </div>
+        </div>
+        <div className="relative w-full h-[280px] mt-20">
+          <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-full overflow-visible">
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={gradientColor1} />
+                <stop offset="100%" stopColor={gradientColor2} />
+              </linearGradient>
+            </defs>
+            {[0, 0.5, 1].map((p, i) => (
+              <line key={i} x1="0" y1={p * chartHeight} x2={chartWidth} y2={p * chartHeight} stroke="#f3f4f6" strokeWidth="2" strokeDasharray="5" />
+            ))}
+            {data.map((d, i) => {
+              const barWidth = 45;
+              const x = (i / (data.length - 1)) * (chartWidth - barWidth);
+              const barHeight = (d.count / maxCount) * chartHeight;
+              const y = chartHeight - barHeight;
+              return (
+                <g key={i} className="group/bar">
+                  <rect x={x} y={y} width={barWidth} height={barHeight} fill={`url(#${gradientId})`} className="transition-all duration-500 hover:opacity-80 cursor-pointer" rx="10" />
+                  <foreignObject x={x - 27.5} y={y - 75} width="100" height="70" className="overflow-visible pointer-events-none opacity-0 group-hover/bar:opacity-100 transition-opacity duration-300">
+                    <div className="flex flex-col items-center animate-bounce-callout">
+                      <div className="bg-black text-white text-lg font-black px-4 py-2 rounded-xl shadow-2xl flex flex-col items-center justify-center min-w-[60px] border-4 border-white">
+                        <span className="text-xs leading-none opacity-60 mb-1">{d.hour}</span>
+                        <span className="leading-none">{d.count}</span>
+                      </div>
+                      <div className="w-3.5 h-3.5 bg-black transform rotate-45 -mt-2 border-r-4 border-b-4 border-white"></div>
+                    </div>
+                  </foreignObject>
+                  <text x={x + barWidth / 2} y={chartHeight + 35} textAnchor="middle" className="text-base font-black fill-black uppercase tracking-wider">{d.hour}</text>
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-12">
       <style>{`
         @keyframes bounce-callout {
           0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-8px); }
+          50% { transform: translateY(-10px); }
         }
         .animate-bounce-callout {
-          animation: bounce-callout 2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
-        }
-        .bar-gradient {
-          fill: url(#barGradient);
+          animation: bounce-callout 1.5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
         }
       `}</style>
 
@@ -261,134 +311,6 @@ const AdminOverview: React.FC<AdminOverviewProps> = ({ employees, logs, onQuickA
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div onClick={() => setModalMode('TOTAL')} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center justify-between group hover:shadow-2xl hover:scale-[1.02] cursor-pointer transition-all overflow-hidden">
-          <div className="flex-grow">
-            <span className="block text-[9px] font-black text-black uppercase tracking-widest mb-1">Total Registry</span>
-            <span className="text-4xl font-black text-black leading-none">{stats.total}</span>
-            <div className="flex items-center gap-1 text-black font-bold text-[9px] uppercase mt-3">
-              <Users size={12} className="text-black" /> Full Personnel List
-            </div>
-          </div>
-          <div className="relative w-16 h-16 shrink-0 ml-4">
-            <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90 overflow-visible">
-              <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-gray-100" />
-              <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="12" fill="transparent" strokeDasharray={strokeDash} strokeDashoffset={0} className="text-black" />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <TrendingUp className="text-black" size={16} />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center justify-between group hover:shadow-2xl hover:scale-[1.02] cursor-pointer transition-all overflow-hidden">
-          <div className="flex-grow">
-            <span className="block text-[9px] font-black text-black uppercase tracking-widest mb-1">Active Visitors</span>
-            <span className="text-4xl font-black text-blue-600 leading-none">{stats.activeVisitors}</span>
-            <div className="flex items-center gap-1 text-black font-bold text-[9px] uppercase mt-3">
-              <Users size={12} className="text-blue-500" /> Guests on site
-            </div>
-          </div>
-          <div className="relative w-16 h-16 shrink-0 ml-4">
-            <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90 overflow-visible">
-              <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-gray-100" />
-              <circle
-                cx="50" cy="50" r="40"
-                stroke="currentColor"
-                strokeWidth="12"
-                fill="transparent"
-                strokeDasharray={strokeDash}
-                strokeDashoffset={strokeDash - (strokeDash * (stats.activeVisitors / (stats.total + stats.activeVisitors) * 100)) / 100}
-                className="text-blue-500 transition-all duration-1000"
-              />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <UserCheck className="text-blue-500" size={16} />
-            </div>
-          </div>
-        </div>
-
-        <div onClick={() => setModalMode('PRESENT')} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center justify-between group hover:shadow-2xl hover:scale-[1.02] cursor-pointer transition-all overflow-hidden">
-          <div className="flex-grow">
-            <span className="block text-[9px] font-black text-black uppercase tracking-widest mb-1">Present Today</span>
-            <span className="text-4xl font-black text-emerald-600 leading-none">{stats.present}</span>
-            <div className="flex items-center gap-1 text-black font-bold text-[9px] uppercase mt-3">
-              <ArrowUpRight size={12} className="text-emerald-500" /> {Math.round(stats.presentPct)}% Attendance
-            </div>
-          </div>
-          <div className="relative w-16 h-16 shrink-0 ml-4">
-            <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90 overflow-visible">
-              <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-gray-100" />
-              <circle 
-                cx="50" cy="50" r="40" 
-                stroke="currentColor" 
-                strokeWidth="12" 
-                fill="transparent" 
-                strokeDasharray={strokeDash} 
-                strokeDashoffset={strokeDash - (strokeDash * stats.presentPct) / 100} 
-                className="text-emerald-500 transition-all duration-1000" 
-              />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <UserCheck className="text-emerald-500" size={16} />
-            </div>
-          </div>
-        </div>
-
-        <div onClick={() => setModalMode('ABSENT')} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center justify-between group hover:shadow-2xl hover:scale-[1.02] cursor-pointer transition-all overflow-hidden">
-          <div className="flex-grow">
-            <span className="block text-[9px] font-black text-black uppercase tracking-widest mb-1">Absent Today</span>
-            <span className="text-4xl font-black text-red-600 leading-none">{stats.absent}</span>
-            <div className="flex items-center gap-1 text-black font-bold text-[9px] uppercase mt-3">
-              <ArrowDownRight size={12} className="text-red-500" /> {Math.round(stats.absentPct)}% Missing
-            </div>
-          </div>
-          <div className="relative w-16 h-16 shrink-0 ml-4">
-            <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90 overflow-visible">
-              <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-gray-100" />
-              <circle 
-                cx="50" cy="50" r="40" 
-                stroke="currentColor" 
-                strokeWidth="12" 
-                fill="transparent" 
-                strokeDasharray={strokeDash} 
-                strokeDashoffset={strokeDash - (strokeDash * stats.absentPct) / 100} 
-                className="text-red-500 transition-all duration-1000" 
-              />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <UserMinus className="text-red-500" size={16} />
-            </div>
-          </div>
-        </div>
-
-        <div onClick={() => setModalMode('OUTSIDE')} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center justify-between group hover:shadow-2xl hover:scale-[1.02] cursor-pointer transition-all overflow-hidden">
-          <div className="flex-grow">
-            <span className="block text-[9px] font-black text-black uppercase tracking-widest mb-1">On Field Duty</span>
-            <span className="text-4xl font-black text-orange-600 leading-none">{stats.outside}</span>
-            <div className="flex items-center gap-1 text-black font-bold text-[9px] uppercase mt-3">
-              <Truck size={12} className="text-orange-500" /> Deployment Registry
-            </div>
-          </div>
-          <div className="relative w-16 h-16 shrink-0 ml-4">
-            <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90 overflow-visible">
-              <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-gray-100" />
-              <circle 
-                cx="50" cy="50" r="40" 
-                stroke="currentColor" 
-                strokeWidth="12" 
-                fill="transparent" 
-                strokeDasharray={strokeDash} 
-                strokeDashoffset={strokeDash - (strokeDash * stats.outsidePct) / 100} 
-                className="text-orange-500 transition-all duration-1000" 
-              />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Truck className="text-orange-500" size={16} />
-            </div>
-          </div>
-        </div>
-      </div>
 
       <div className="bg-white p-10 rounded-[3rem] border border-gray-100 shadow-sm">
         <div className="flex justify-between items-center mb-16">
@@ -438,26 +360,6 @@ const AdminOverview: React.FC<AdminOverviewProps> = ({ employees, logs, onQuickA
               );
             })}
           </svg>
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-emerald-600 p-8 rounded-[2.5rem] text-white flex items-center justify-between shadow-lg shadow-emerald-200/50">
-          <div>
-            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-white mb-1">Live Efficiency</h4>
-            <span className="text-4xl font-black uppercase">{stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0}% Present</span>
-          </div>
-          <Zap size={44} className="opacity-20 animate-pulse" />
-        </div>
-        <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white flex items-center justify-between shadow-lg shadow-slate-200/50">
-          <div>
-            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-white mb-1">System Health</h4>
-            <span className="text-4xl font-black uppercase flex items-center gap-3">
-              <CheckCircle2 size={32} className="text-emerald-400" /> 
-              ACTIVE
-            </span>
-          </div>
-          <RefreshCw size={44} className="opacity-10" />
         </div>
       </div>
     </div>

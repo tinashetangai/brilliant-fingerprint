@@ -130,7 +130,7 @@ app.post('/iclock/cdata', async (req, res) => {
                     employeeName: emp.name,
                     timestamp: now,
                     action,
-                    date: new Date().toLocaleDateString('en-GB')
+                    date: new Date().toLocaleString('en-GB')
                 });
 
                 // Update the gate pass request to 'used'
@@ -161,8 +161,24 @@ app.post('/iclock/cdata', async (req, res) => {
                     action,
                     status: 'SUCCESS',
                     source: 'F22_HARDWARE',
-                    date: new Date().toLocaleDateString('en-GB')
+                    date: new Date().toLocaleString('en-GB')
                 });
+
+                // First LOGIN of the day → increment days worked
+                if (action === 'LOGIN') {
+                    const todayLogs = await db.collection('logs')
+                        .where('subjectId', '==', employeeId)
+                        .where('action', '==', 'LOGIN')
+                        .where('timestamp', '>=', startOfToday.getTime())
+                        .get();
+
+                    if (todayLogs.docs.length === 1) { // The one we just added
+                        await empDoc.ref.update({
+                            totalDaysWorked: admin.firestore.FieldValue.increment(1)
+                        });
+                        console.log(`${C.CYAN}✨ First login of the day for ${emp.name}. Incrementing day count.${C.RESET}`);
+                    }
+                }
 
                 const color = action === 'LOGIN' ? C.GREEN : C.YELLOW;
                 console.log(`${color}✔ ${action} → ${emp.name}${C.RESET}`);

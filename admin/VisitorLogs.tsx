@@ -64,8 +64,40 @@ const VisitorLogs: React.FC<VisitorLogsProps> = ({
       .slice(0, 5);
   }, [searchQuery, sessions]);
 
+  const [showHistory, setShowHistory] = useState(false);
+
+  const { totalVisitors, currentlyOnsite } = useMemo(() => {
+    const uniqueVisitors = new Set(sessions.map(s => s.subjectId));
+    const onsite = sessions.filter(s => s.timeOut === 'ONSITE').length;
+    return {
+      totalVisitors: uniqueVisitors.size,
+      currentlyOnsite: onsite,
+    };
+  }, [sessions]);
+
+  const displayedSessions = useMemo(() => {
+    if (showHistory) {
+      return filteredSessions.filter(s => s.timeOut !== 'ONSITE');
+    }
+    return filteredSessions.filter(s => s.timeOut === 'ONSITE');
+  }, [filteredSessions, showHistory]);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="p-6 bg-green-50 border-2 border-green-100 rounded-2xl">
+          <p className="text-[10px] font-black uppercase text-green-800 tracking-widest">Currently On-Site</p>
+          <p className="text-4xl font-black text-green-700">{currentlyOnsite}</p>
+        </div>
+        <div className="p-6 bg-blue-50 border-2 border-blue-100 rounded-2xl">
+          <p className="text-[10px] font-black uppercase text-blue-800 tracking-widest">Total Unique Visitors</p>
+          <p className="text-4xl font-black text-blue-700">{totalVisitors}</p>
+        </div>
+        <div className="p-6 bg-purple-50 border-2 border-purple-100 rounded-2xl">
+          <p className="text-[10px] font-black uppercase text-purple-800 tracking-widest">Total Visits Logged</p>
+          <p className="text-4xl font-black text-purple-700">{sessions.length}</p>
+        </div>
+      </div>
       <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
         <div className="flex flex-col md:flex-row gap-4 items-stretch">
           <div className="relative w-full md:w-80">
@@ -107,9 +139,15 @@ const VisitorLogs: React.FC<VisitorLogsProps> = ({
           </div>
         </div>
 
-        <button onClick={onReportOpen} className="flex items-center gap-2 px-8 py-3 bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:scale-[1.02] transition-all">
-          <Download size={14}/> Download Registry
-        </button>
+        <div className="flex items-center gap-4">
+          <button onClick={onReportOpen} className="flex items-center gap-2 px-8 py-3 bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:scale-[1.02] transition-all">
+            <Download size={14}/> Download Registry
+          </button>
+          <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-full">
+            <button onClick={() => setShowHistory(false)} className={`px-4 py-2 text-[10px] font-black uppercase rounded-full ${!showHistory ? 'bg-white text-black shadow' : 'text-gray-400'}`}>On-Site</button>
+            <button onClick={() => setShowHistory(true)} className={`px-4 py-2 text-[10px] font-black uppercase rounded-full ${showHistory ? 'bg-white text-black shadow' : 'text-gray-400'}`}>History</button>
+          </div>
+        </div>
       </div>
 
       <div className="bg-white border border-gray-100 rounded-[2.5rem] shadow-sm overflow-x-auto">
@@ -124,7 +162,7 @@ const VisitorLogs: React.FC<VisitorLogsProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {filteredSessions.map((sess, idx) => (
+            {displayedSessions.map((sess, idx) => (
               <tr key={idx} className={`transition-all duration-300 hover:bg-slate-50/50`}>
                 <td className="px-8 py-5">
                    <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">{sess.date}</div>
@@ -165,7 +203,7 @@ const VisitorLogs: React.FC<VisitorLogsProps> = ({
             ))}
           </tbody>
         </table>
-        {filteredSessions.length === 0 && (
+        {displayedSessions.length === 0 && (
           <div className="py-24 text-center text-gray-300 font-black uppercase tracking-[0.3em] italic bg-slate-50/20">
             No Visitors Identified
           </div>
