@@ -320,7 +320,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
               </div>
             </div>
 
-            <ReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} title={activeTab} data={filteredReportLogs} />
+            <ReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} title={activeTab} data={filteredReportLogs} employees={employees} logs={logs} />
             <BottomNavBar activeTab={activeTab} onTabChange={setActiveTab} />
           </main>
         </>
