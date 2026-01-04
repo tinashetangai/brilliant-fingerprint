@@ -35,12 +35,16 @@ const CameraModal: React.FC<CameraModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       resetAuth();
-      // Auto-initiate biometric scan when modal opens, but do it silently
-      handleBiometricAuth(true);
+      if (isGatePass) {
+        setAuthMode('PIN');
+      } else {
+        // Auto-initiate biometric scan when modal opens, but do it silently
+        handleBiometricAuth(true);
+      }
     } else {
       resetAuth();
     }
-  }, [isOpen]);
+  }, [isOpen, isGatePass]);
 
   useEffect(() => {
     if (pin.length === 4 && authStatus === 'idle') {
@@ -52,7 +56,7 @@ const CameraModal: React.FC<CameraModalProps> = ({
     setPin('');
     setAuthStatus('idle');
     setFeedback('');
-    setAuthMode('BIO');
+    setAuthMode(isGatePass ? 'PIN' : 'BIO');
   };
 
   const handleBiometricAuth = async (isInitial: boolean = false) => {
@@ -146,7 +150,7 @@ const CameraModal: React.FC<CameraModalProps> = ({
         </div>
 
         <div className="px-8 py-12 flex flex-col items-center justify-center min-h-[450px]">
-          {authMode === 'BIO' ? (
+          {authMode === 'BIO' && !isGatePass ? (
              <div className="flex flex-col items-center justify-center space-y-12 animate-in fade-in zoom-in">
                 <div className={`relative w-44 h-44 rounded-full flex items-center justify-center border-4 transition-all duration-700 ${authStatus === 'processing' ? 'border-emerald-500 bg-emerald-50 shadow-[0_0_40px_-10px_rgba(16,185,129,0.5)]' : authStatus === 'error' ? 'border-red-500 bg-red-50 shadow-[0_0_40px_-10px_rgba(239,68,68,0.5)]' : 'border-slate-100 bg-slate-50'}`}>
                    <Fingerprint size={96} className={`transition-colors duration-500 ${authStatus === 'processing' ? 'text-emerald-500 animate-pulse' : authStatus === 'error' ? 'text-red-500' : 'text-slate-200'}`} />
@@ -202,7 +206,7 @@ const CameraModal: React.FC<CameraModalProps> = ({
                 <p className={`text-[11px] font-black uppercase tracking-widest ${authStatus === 'error' ? 'text-red-600' : 'text-slate-400'}`}>
                   {feedback || "Enter Secure Registry PIN"}
                 </p>
-                <button onClick={() => { setAuthMode('BIO'); handleBiometricAuth(true); }} className="text-[10px] font-black uppercase text-emerald-600 underline">Switch back to Fingerprint</button>
+                {!isGatePass && <button onClick={() => { setAuthMode('BIO'); handleBiometricAuth(true); }} className="text-[10px] font-black uppercase text-emerald-600 underline">Switch back to Fingerprint</button>}
               </div>
             </div>
           )}
