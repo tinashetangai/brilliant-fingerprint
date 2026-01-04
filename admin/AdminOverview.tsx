@@ -45,36 +45,36 @@ const AdminOverview: React.FC<AdminOverviewProps> = ({ employees, logs, onQuickA
       return 0;
     };
 
-    // Calculate UTC midnight for the threshold
-    const startUTC = new Date();
-    startUTC.setUTCHours(0, 0, 0, 0);
-    const todayThreshold = startUTC.getTime();
+    // Calculate local midnight for the threshold
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const todayThreshold = startOfToday.getTime();
 
-    // 1. Identify all employees who have scanned into the building today
-    const scannedToday = new Set<string>();
+    // 1. Find the last action for each employee today
+    const employeeLastAction: { [key: string]: { timestamp: number, action: AttendanceAction } } = {};
     logs.forEach(log => {
-      // Filter for successful employee logs from today
       if (log.status !== LogStatus.SUCCESS || log.type !== 'EMPLOYEE') return;
-
       const ts = normalizeTs(log.timestamp);
       if (ts < todayThreshold) return;
 
-      if (log.action === AttendanceAction.LOGIN) {
-        scannedToday.add(String(log.subjectId).trim());
+      const employeeId = String(log.subjectId).trim();
+      if (!employeeLastAction[employeeId] || ts > employeeLastAction[employeeId].timestamp) {
+        employeeLastAction[employeeId] = { timestamp: ts, action: log.action };
       }
     });
 
-    // 2. Categorize the entire employee registry into disjoint buckets
+    // 2. Categorize employees based on their last action
     const presentIds = new Set<string>();
     const fieldDutyIds = new Set<string>();
     const absentIds = new Set<string>();
 
     employees.forEach(emp => {
       const eid = String(emp.id).trim();
-      const isPresent = scannedToday.has(eid);
+      const lastAction = employeeLastAction[eid];
+      const isPresent = lastAction && lastAction.action === AttendanceAction.LOGIN;
       const isField = emp.outsideWorkUntil && normalizeTs(emp.outsideWorkUntil) > now;
 
-      // Logic Hierarchy: Present (Scanned) > Field Duty (Mission) > Absent (Missing)
+      // Logic Hierarchy: Present (Last action is LOGIN) > Field Duty (Mission) > Absent (Missing)
       if (isPresent) {
         presentIds.add(eid);
       } else if (isField) {
@@ -89,8 +89,24 @@ const AdminOverview: React.FC<AdminOverviewProps> = ({ employees, logs, onQuickA
     // Reliability Check: Sum of categories must equal the total registry
     console.log(`[DASHBOARD_SYNC] Total Registry: ${total} | Present: ${presentIds.size} | Field: ${fieldDutyIds.size} | Absent: ${absentIds.size}`);
 
+    // 3. Calculate active visitors
+    const visitorLastAction: { [key: string]: { timestamp: number, action: AttendanceAction } } = {};
+    logs.forEach(log => {
+      if (log.status !== LogStatus.SUCCESS || log.type !== 'VISITOR') return;
+      const ts = normalizeTs(log.timestamp);
+      if (ts < todayThreshold) return;
+
+      const visitorId = String(log.subjectId).trim();
+      if (!visitorLastAction[visitorId] || ts > visitorLastAction[visitorId].timestamp) {
+        visitorLastAction[visitorId] = { timestamp: ts, action: log.action };
+      }
+    });
+
+    const activeVisitors = Object.values(visitorLastAction).filter(v => v.action === AttendanceAction.LOGIN).length;
+
     return {
       total,
+      activeVisitors,
       present: presentIds.size,
       absent: absentIds.size,
       outside: fieldDutyIds.size,
@@ -261,6 +277,33 @@ const AdminOverview: React.FC<AdminOverviewProps> = ({ employees, logs, onQuickA
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
               <TrendingUp className="text-black" size={16} />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center justify-between group hover:shadow-2xl hover:scale-[1.02] cursor-pointer transition-all overflow-hidden">
+          <div className="flex-grow">
+            <span className="block text-[9px] font-black text-black uppercase tracking-widest mb-1">Active Visitors</span>
+            <span className="text-4xl font-black text-blue-600 leading-none">{stats.activeVisitors}</span>
+            <div className="flex items-center gap-1 text-black font-bold text-[9px] uppercase mt-3">
+              <Users size={12} className="text-blue-500" /> Guests on site
+            </div>
+          </div>
+          <div className="relative w-16 h-16 shrink-0 ml-4">
+            <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90 overflow-visible">
+              <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-gray-100" />
+              <circle
+                cx="50" cy="50" r="40"
+                stroke="currentColor"
+                strokeWidth="12"
+                fill="transparent"
+                strokeDasharray={strokeDash}
+                strokeDashoffset={strokeDash - (strokeDash * (stats.activeVisitors / (stats.total + stats.activeVisitors) * 100)) / 100}
+                className="text-blue-500 transition-all duration-1000"
+              />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <UserCheck className="text-blue-500" size={16} />
             </div>
           </div>
         </div>

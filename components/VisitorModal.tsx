@@ -42,6 +42,13 @@ const VisitorModal: React.FC<VisitorModalProps> = ({ isOpen, onClose }) => {
     }
   }, [isOpen, action]);
 
+  useEffect(() => {
+    // Auto-start camera when entering capture step
+    if (step === 'capture' && !capturedPhoto) {
+      startCamera();
+    }
+  }, [step, capturedPhoto]);
+
   const loadActiveVisitors = async () => {
     const list = await dataService.getActiveVisitors();
     setActiveVisitors(list);
@@ -73,6 +80,16 @@ const VisitorModal: React.FC<VisitorModalProps> = ({ isOpen, onClose }) => {
       const data = canvas.toDataURL('image/jpeg', 0.85);
       setCapturedPhoto(data);
       stopCamera();
+
+      // Auto-download the captured image
+      const link = document.createElement('a');
+      const now = new Date();
+      const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}`;
+      link.download = `visitor-${timestamp}.jpg`;
+      link.href = data;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 
@@ -81,24 +98,19 @@ const VisitorModal: React.FC<VisitorModalProps> = ({ isOpen, onClose }) => {
     return activeVisitors.filter(v => v.name.toLowerCase().includes(searchQuery.toLowerCase()));
   }, [searchQuery, activeVisitors]);
 
-  const handleNextStep = () => {
-    if (action === AttendanceAction.LOGOUT) {
-      setStep('form');
-      return;
-    }
-
-    if (step === 'form') {
+  const handleSubmit = async () => {
+    if (action === AttendanceAction.LOGIN) {
       if (!firstName.trim() || !lastName.trim() || !identityNumber.trim()) {
         setValidationError("All fields are mandatory.");
         return;
       }
-      setValidationError(null);
-      setStep('capture');
-      startCamera();
+      if (!capturedPhoto) {
+        setValidationError("Visitor photo is mandatory for registry.");
+        setStep('capture');
+        return;
+      }
     }
-  };
 
-  const handleSubmit = async () => {
     setValidationError(null);
     setIsSubmitting(true);
     
@@ -165,7 +177,7 @@ const VisitorModal: React.FC<VisitorModalProps> = ({ isOpen, onClose }) => {
                </div>
                <div className="grid grid-cols-2 gap-4">
                   <button 
-                    onClick={() => { setAction(AttendanceAction.LOGIN); setStep('form'); }}
+                    onClick={() => { setAction(AttendanceAction.LOGIN); setStep('capture'); }}
                     className="flex flex-col items-center gap-4 p-8 bg-emerald-50 border-2 border-emerald-100 rounded-[2.5rem] hover:bg-emerald-100 transition-all group"
                   >
                      <div className="w-16 h-16 bg-emerald-600 text-white rounded-2xl flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
@@ -182,6 +194,50 @@ const VisitorModal: React.FC<VisitorModalProps> = ({ isOpen, onClose }) => {
                      </div>
                      <span className="font-black uppercase tracking-widest text-xs text-orange-700">Check Out</span>
                   </button>
+               </div>
+            </div>
+          )}
+
+          {step === 'capture' && action === AttendanceAction.LOGIN && (
+            <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
+               <div className="relative aspect-square w-full max-w-[300px] mx-auto bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-slate-100">
+                  {!capturedPhoto ? (
+                    <>
+                      <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-48 h-48 border-2 border-white/20 border-dashed rounded-full"></div>
+                      </div>
+                    </>
+                  ) : (
+                    <img src={capturedPhoto} className="w-full h-full object-cover" />
+                  )}
+               </div>
+
+               <p className="text-center text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  Mandatory Identity Capture for Registry
+               </p>
+
+               <div className="flex gap-3">
+                  {!capturedPhoto ? (
+                    <button
+                      onClick={capturePhoto}
+                      className="w-full py-5 bg-black text-white rounded-[2rem] font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl hover:bg-emerald-600 transition-all"
+                    >
+                      <Camera size={20} /> Take Photo
+                    </button>
+                  ) : (
+                    <>
+                      <button onClick={() => { setCapturedPhoto(null); }} className="flex-1 py-5 bg-gray-100 text-gray-400 rounded-[2rem] font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2">
+                        <RefreshCcw size={16} /> Retake
+                      </button>
+                      <button
+                        onClick={() => setStep('form')}
+                        className="flex-[2] py-5 bg-emerald-600 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl"
+                      >
+                        Next: Fill Details
+                      </button>
+                    </>
+                  )}
                </div>
             </div>
           )}
@@ -255,60 +311,20 @@ const VisitorModal: React.FC<VisitorModalProps> = ({ isOpen, onClose }) => {
               )}
 
               <div className="flex gap-3">
-                <button onClick={() => setStep('action')} className="flex-1 py-5 bg-gray-100 text-gray-400 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-gray-200 transition-all">Back</button>
                 <button 
-                  onClick={action === AttendanceAction.LOGIN ? handleNextStep : handleSubmit}
-                  disabled={action === AttendanceAction.LOGOUT && !selectedVisitorId}
+                  onClick={() => action === AttendanceAction.LOGIN ? setStep('capture') : setStep('action')}
+                  className="flex-1 py-5 bg-gray-100 text-gray-400 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-gray-200 transition-all"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={(action === AttendanceAction.LOGOUT && !selectedVisitorId) || isSubmitting}
                   className={`flex-[2] py-5 ${action === AttendanceAction.LOGIN ? 'bg-emerald-600' : 'bg-orange-600'} text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-30`}
                 >
-                   {action === AttendanceAction.LOGIN ? 'Next: Capture Photo' : isSubmitting ? <Loader2 className="animate-spin" /> : 'Record Exit'}
+                  {isSubmitting ? <Loader2 className="animate-spin" /> : (action === AttendanceAction.LOGIN ? 'Complete Entry' : 'Record Exit')}
                 </button>
               </div>
-            </div>
-          )}
-
-          {step === 'capture' && (
-            <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-               <div className="relative aspect-square w-full max-w-[300px] mx-auto bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-slate-100">
-                  {!capturedPhoto ? (
-                    <>
-                      <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="w-48 h-48 border-2 border-white/20 border-dashed rounded-full"></div>
-                      </div>
-                    </>
-                  ) : (
-                    <img src={capturedPhoto} className="w-full h-full object-cover" />
-                  )}
-               </div>
-
-               <p className="text-center text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  Mandatory Identity Capture for Registry
-               </p>
-
-               <div className="flex gap-3">
-                  {!capturedPhoto ? (
-                    <button 
-                      onClick={capturePhoto} 
-                      className="w-full py-5 bg-black text-white rounded-[2rem] font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl hover:bg-emerald-600 transition-all"
-                    >
-                      <Camera size={20} /> Take Photo
-                    </button>
-                  ) : (
-                    <>
-                      <button onClick={() => { setCapturedPhoto(null); startCamera(); }} className="flex-1 py-5 bg-gray-100 text-gray-400 rounded-[2rem] font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2">
-                        <RefreshCcw size={16} /> Retake
-                      </button>
-                      <button 
-                        onClick={handleSubmit} 
-                        disabled={isSubmitting}
-                        className="flex-[2] py-5 bg-emerald-600 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl"
-                      >
-                        {isSubmitting ? <Loader2 className="animate-spin" /> : 'Complete Entry'}
-                      </button>
-                    </>
-                  )}
-               </div>
             </div>
           )}
 
