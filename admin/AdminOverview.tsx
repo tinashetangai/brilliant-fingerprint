@@ -45,10 +45,10 @@ const AdminOverview: React.FC<AdminOverviewProps> = ({ employees, logs, onQuickA
       return 0;
     };
 
-    // Calculate UTC midnight for the threshold
-    const startUTC = new Date();
-    startUTC.setUTCHours(0, 0, 0, 0);
-    const todayThreshold = startUTC.getTime();
+    // Calculate local midnight for the threshold
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const todayThreshold = startOfToday.getTime();
 
     // 1. Identify all employees who have scanned into the building today
     const scannedToday = new Set<string>();

@@ -36,10 +36,10 @@ const SuccessModal: React.FC<SuccessModalProps> = ({ isOpen, name, action, durat
         </div>
         
         <h2 className={`text-3xl font-black text-black uppercase tracking-tight leading-none mb-3`}>
-          {isGate ? (isReturn ? 'Welcome Back' : 'Pass Recorded') : 'Identity Verified'}
+          {isGate ? (isReturn ? 'Welcome Back' : 'GATE PASS RECORDED') : 'Identity Verified'}
         </h2>
         <p className="text-gray-400 font-bold uppercase text-[11px] tracking-[0.3em] mb-8">
-           {isGate ? (isReturn ? 'Staff Return Captured' : 'Off-Site Mission Active') : `${action} Processed`}
+           {isGate ? (isReturn ? 'Staff Return Captured' : 'GATE LOGS') : `${action} Processed`}
         </p>
 
         {isReturn && duration && (
