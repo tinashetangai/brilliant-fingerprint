@@ -163,19 +163,23 @@ export const dataService = {
   },
 
   getLogs: async (max: number = 2000): Promise<AttendanceLog[]> => {
-    const q = query(collection(db, LOGS_COL), orderBy("timestamp", "desc"), limit(max));
+    const q = query(collection(db, LOGS_COL));
     const snapshot = await getDocs(q);
-    const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceLog));
+    const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), type: 'EMPLOYEE' } as AttendanceLog));
+    // Client-side sort and limit
+    logs.sort((a, b) => normalizeTs(b.timestamp) - normalizeTs(a.timestamp));
     console.log(`[DATA_SERVICE] Fetched ${logs.length} staff logs.`);
-    return logs;
+    return logs.slice(0, max);
   },
 
   getVisitorLogs: async (max: number = 1000): Promise<AttendanceLog[]> => {
-    const q = query(collection(db, VISITOR_LOGS_COL), orderBy("timestamp", "desc"), limit(max));
+    const q = query(collection(db, VISITOR_LOGS_COL));
     const snapshot = await getDocs(q);
-    const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceLog));
+    const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), type: 'VISITOR' } as AttendanceLog));
+    // Client-side sort and limit
+    logs.sort((a, b) => normalizeTs(b.timestamp) - normalizeTs(a.timestamp));
     console.log(`[DATA_SERVICE] Fetched ${logs.length} visitor logs.`);
-    return logs;
+    return logs.slice(0, max);
   },
 
   getInformalLogs: async (): Promise<InformalLog[]> => {
@@ -188,28 +192,37 @@ export const dataService = {
 
   getUserLastAction: async (subjectId: string): Promise<AttendanceAction | null> => {
     const q = query(
-      collection(db, LOGS_COL), 
-      where("subjectId", "==", String(subjectId).trim()), 
-      where("status", "==", LogStatus.SUCCESS),
-      orderBy("timestamp", "desc"), 
+      collection(db, LOGS_COL),
+      where("subjectId", "==", String(subjectId).trim()),
+      orderBy("timestamp", "desc"),
       limit(1)
     );
     const snap = await getDocs(q);
     if (snap.empty) return null;
-    return (snap.docs[0].data() as AttendanceLog).action;
+    const lastLog = snap.docs[0].data() as AttendanceLog;
+    // Client-side filter for status
+    if (lastLog.status === LogStatus.SUCCESS) {
+      return lastLog.action;
+    }
+    return null;
   },
 
   getActiveVisitors: async (): Promise<{id: string, name: string}[]> => {
     const today = new Date();
-    today.setHours(0,0,0,0);
-    const q = query(
-      collection(db, VISITOR_LOGS_COL),
-      where("timestamp", ">=", today.getTime()),
-      orderBy("timestamp", "asc")
-    );
+    today.setHours(0, 0, 0, 0);
+    const q = query(collection(db, VISITOR_LOGS_COL));
     const snap = await getDocs(q);
     const activeMap = new Map<string, string>();
-    snap.docs.forEach(d => {
+
+    const todayLogs = snap.docs.filter(d => {
+      const ts = normalizeTs(d.data().timestamp);
+      return ts >= today.getTime();
+    });
+
+    // Sort by timestamp ascending to process in order
+    todayLogs.sort((a, b) => normalizeTs(a.data().timestamp) - normalizeTs(b.data().timestamp));
+
+    todayLogs.forEach(d => {
       const data = d.data();
       if (data.action === AttendanceAction.LOGIN) {
         activeMap.set(String(data.subjectId).trim(), data.subjectName);

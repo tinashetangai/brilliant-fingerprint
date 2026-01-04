@@ -286,7 +286,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
 
             <div className="flex-grow overflow-auto p-4 md:p-8 bg-slate-50/30">
               <div className="max-w-7xl mx-auto">
-                {activeTab === 'OVERVIEW' && settings && <AdminOverview employees={employees} logs={logs} onQuickAction={handleQuickAction} settings={settings} />}
+                {activeTab === 'OVERVIEW' && settings && <AdminOverview employees={employees} logs={[...logs, ...visitorLogs]} onQuickAction={handleQuickAction} settings={settings} />}
                 {activeTab === 'EMPLOYEES' && <StaffDirectory employees={employees} departments={departments} onAddEmployee={handleAddEmployee} onUpdateEmployee={handleUpdateEmployee} onDeleteEmployee={handleDeleteEmployee} searchQuery={searchQuery} setSearchQuery={setSearchQuery} highlightedId={highlightedId} handleSuggestionClick={handleSuggestionClick} />}
                 {activeTab === 'OUTSIDE_WORK' && <OutsideWork employees={employees} departments={departments} onRefresh={loadData} />}
                 {activeTab === 'STAFF_LOGS' && <StaffLogs logs={logs} employees={employees} searchQuery={searchQuery} setSearchQuery={setSearchQuery} activeFilter={activeFilter} setActiveFilter={setActiveFilter} onReportOpen={() => setIsReportOpen(true)} onWipeLogs={() => setShowPurgeModal(true)} highlightedId={highlightedId} handleSuggestionClick={handleSuggestionClick} />}
