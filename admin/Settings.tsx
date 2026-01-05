@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { Save, Settings as SettingsIcon, Building2, Plus, Trash2, Edit2, Check, X, Clock, ShieldCheck, Briefcase, Lock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Save, Settings as SettingsIcon, Building2, Plus, Trash2, Edit2, Check, X, Clock, ShieldCheck, Briefcase, Lock, Loader } from 'lucide-react';
 import { SystemSettings, Department } from '../types';
 
 interface SettingsProps {
@@ -44,7 +44,14 @@ const Settings: React.FC<SettingsProps> = ({
   }, []);
 
 
-  if (!settings) return null;
+  if (!settings) {
+    return (
+      <div className="flex justify-center items-center h-full">
+        <Loader className="animate-spin" size={48} />
+        <p className="ml-4 text-lg">Loading settings...</p>
+      </div>
+    );
+  }
 
   const handleAddDept = async () => {
     if (!newDeptName.trim()) return;
