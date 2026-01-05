@@ -32,6 +32,17 @@ const Settings: React.FC<SettingsProps> = ({
   // Security form state
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handleInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
+  }, []);
+
 
   if (!settings) return null;
 
@@ -287,6 +298,17 @@ const Settings: React.FC<SettingsProps> = ({
                    <ShieldCheck size={18}/> Update System Key
                 </button>
              </form>
+
+            {installPrompt && (
+              <div className="mt-8 pt-8 border-t border-gray-100">
+                <button
+                  onClick={() => installPrompt.prompt()}
+                  className="w-full py-5 bg-blue-600 text-white rounded-[2rem] font-black uppercase text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 tracking-widest"
+                >
+                  Install App to Device
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -185,74 +185,71 @@ const Home: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col gap-4 lg:gap-6 overflow-hidden">
-          <div className="bg-white p-6 lg:p-8 rounded-[2.5rem] border border-slate-100 shadow-lg shrink-0">
-             <div className="flex items-center gap-3 mb-4">
-                <div className="w-7 h-7 bg-slate-900 text-white rounded-lg flex items-center justify-center shadow-md">
-                   <Bell size={14} />
+        <div className="flex-1 flex flex-col gap-2 lg:gap-4 overflow-hidden">
+          <div className="bg-white p-4 lg:p-6 rounded-[2rem] border border-slate-100 shadow-lg shrink-0">
+             <div className="flex items-center gap-3 mb-3">
+                <div className="w-6 h-6 bg-slate-900 text-white rounded-md flex items-center justify-center shadow-md">
+                   <Bell size={12} />
                 </div>
-                <h3 className="text-[11px] font-black uppercase tracking-widest text-black">Live Broadcasts</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-black">Live Broadcasts</h3>
              </div>
              
              {currentNotice ? (
-                <div className={`w-full bg-gradient-to-br ${activeGradient} p-6 rounded-[1.5rem] shadow-xl flex flex-col gap-3 animate-in slide-in-from-right-4 duration-700 min-h-[120px] justify-center`}>
-                  <div className="w-8 h-8 bg-white/10 backdrop-blur-md rounded-lg flex items-center justify-center border border-white/20">
-                    <Bell className="text-white w-4 h-4" />
+                <div className={`w-full bg-gradient-to-br ${activeGradient} p-4 rounded-[1.25rem] shadow-xl flex flex-col gap-2 animate-in slide-in-from-right-4 duration-700 min-h-[90px] justify-center`}>
+                  <div className="w-7 h-7 bg-white/10 backdrop-blur-md rounded-lg flex items-center justify-center border border-white/20">
+                    <Bell className="text-white w-3.5 h-3.5" />
                   </div>
-                  <p className="font-black text-white text-sm lg:text-base leading-tight uppercase line-clamp-2">{currentNotice.content}</p>
+                  <p className="font-black text-white text-xs lg:text-sm leading-tight uppercase line-clamp-2">{currentNotice.content}</p>
                 </div>
              ) : (
-                <div className="w-full h-[120px] bg-slate-50 border-2 border-dashed border-slate-200 rounded-[1.5rem] flex flex-col items-center justify-center gap-2 opacity-40">
-                   <Megaphone size={24} className="text-slate-300" />
-                   <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">No active notices</p>
+                <div className="w-full h-[90px] bg-slate-50 border-2 border-dashed border-slate-200 rounded-[1.25rem] flex flex-col items-center justify-center gap-2 opacity-40">
+                   <Megaphone size={20} className="text-slate-300" />
+                   <p className="text-[7px] font-black uppercase tracking-widest text-slate-400">No active notices</p>
                 </div>
              )}
           </div>
 
-          <div className="flex-grow flex flex-col gap-4 overflow-hidden">
-             <div className="grid grid-cols-2 gap-4">
-               <button 
-                onClick={() => triggerAuthModal(AttendanceAction.GATE_OUT)}
-                className="group p-6 bg-blue-600 hover:bg-blue-700 text-white rounded-[2rem] flex flex-col items-center justify-center gap-4 transition-all active:scale-[0.98] shadow-lg"
-               >
-                  <DoorOpen size={24} />
-                  <div className="text-center">
-                    <h4 className="text-xs font-black uppercase tracking-tight">Gate Pass</h4>
-                    <p className="text-[8px] font-bold uppercase tracking-[0.15em] text-blue-100/60 mt-0.5">Errands Log</p>
-                  </div>
-               </button>
+          <div className="flex-grow grid grid-cols-2 grid-rows-2 gap-2 lg:gap-4">
+             <button
+              onClick={() => triggerAuthModal(AttendanceAction.GATE_OUT)}
+              className="group p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-[2rem] flex flex-col items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg"
+             >
+                <DoorOpen size={20} />
+                <div className="text-center">
+                  <h4 className="text-[11px] font-black uppercase tracking-tight">Gate Pass</h4>
+                  <p className="text-[7px] font-bold uppercase tracking-[0.15em] text-blue-100/60 mt-0.5">Errands Log</p>
+                </div>
+             </button>
 
-               <button 
-                onClick={() => setIsVisitorModalOpen(true)}
-                className="group p-6 bg-emerald-800 hover:bg-emerald-900 text-white rounded-[2rem] flex flex-col items-center justify-center gap-4 transition-all active:scale-[0.98] shadow-lg"
-               >
-                  <UserPlus size={24} />
-                  <div className="text-center">
-                    <h4 className="text-xs font-black uppercase tracking-tight">Visitor</h4>
-                    <p className="text-[8px] font-bold uppercase tracking-[0.15em] text-emerald-100/60 mt-0.5">Registry Entry</p>
-                  </div>
-               </button>
-             </div>
+             <button
+              onClick={() => setIsVisitorModalOpen(true)}
+              className="group p-4 bg-emerald-800 hover:bg-emerald-900 text-white rounded-[2rem] flex flex-col items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg"
+             >
+                <UserPlus size={20} />
+                <div className="text-center">
+                  <h4 className="text-[11px] font-black uppercase tracking-tight">Visitor</h4>
+                  <p className="text-[7px] font-bold uppercase tracking-[0.15em] text-emerald-100/60 mt-0.5">Registry Entry</p>
+                </div>
+             </button>
 
              <button 
               onClick={() => window.location.hash = '#admin'}
-              className="group p-5 bg-white border border-slate-200 text-slate-900 rounded-[2rem] flex items-center justify-between transition-all hover:bg-slate-50 active:scale-[0.98] shadow-sm mt-auto"
+              className="group p-4 bg-white border border-slate-200 text-slate-900 rounded-[2rem] flex flex-col items-center justify-center gap-2 transition-all hover:bg-slate-50 active:scale-[0.98] shadow-sm col-span-2"
              >
-                <div className="flex items-center gap-4">
-                   <div className="w-10 h-10 bg-slate-100 text-slate-900 rounded-xl flex items-center justify-center border border-slate-200">
-                      <Flag size={20} />
+                <div className="flex items-center gap-3">
+                   <div className="w-8 h-8 bg-slate-100 text-slate-900 rounded-xl flex items-center justify-center border border-slate-200">
+                      <Flag size={16} />
                    </div>
                    <div className="text-left">
-                      <h4 className="text-xs font-black uppercase tracking-tight">Administration</h4>
-                      <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400">Manager Access</p>
+                      <h4 className="text-[11px] font-black uppercase tracking-tight">Administration</h4>
+                      <p className="text-[7px] font-bold uppercase tracking-widest text-slate-400">Manager Access</p>
                    </div>
                 </div>
-                <Keyboard size={14} />
              </button>
+          </div>
 
-             <div className="py-2 text-center">
-                <p className="text-[7px] font-black text-slate-300 uppercase tracking-[0.5em]">Knockout Intelligence Systems v4.2</p>
-             </div>
+          <div className="py-1 text-center shrink-0">
+             <p className="text-[7px] font-black text-slate-300 uppercase tracking-[0.5em]">Knockout Intelligence Systems v4.2</p>
           </div>
         </div>
       </div>

@@ -12,10 +12,12 @@ interface StaffDirectoryProps {
   onAddEmployee: (emp: { name: string; email: string; department: string; pin: string; fingerprintHash: string }) => void;
   onUpdateEmployee: (id: string, emp: Partial<Employee>) => Promise<void>;
   onDeleteEmployee: (id: string) => Promise<void>;
+  onResetDaysWorked: (id: string) => Promise<void>;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   highlightedId: string | null;
   handleSuggestionClick: (name: string) => void;
+  activeEmployeeIds: Set<string>;
 }
 
 const StaffDirectory: React.FC<StaffDirectoryProps> = ({ 
@@ -24,10 +26,12 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
   onAddEmployee, 
   onUpdateEmployee,
   onDeleteEmployee,
+  onResetDaysWorked,
   searchQuery, 
   setSearchQuery, 
   highlightedId,
-  handleSuggestionClick 
+  handleSuggestionClick,
+  activeEmployeeIds
 }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newEmp, setNewEmp] = useState({ name: '', email: '', department: '', pin: '', fingerprintHash: '' });
@@ -133,6 +137,21 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
   return (
     <div className="space-y-6 animate-in fade-in duration-500 relative">
       
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-4 bg-gray-50 rounded-lg">
+          <h4 className="text-xs font-bold text-gray-500 uppercase">Total Employees</h4>
+          <p className="text-2xl font-bold">{employees.length}</p>
+        </div>
+        <div className="p-4 bg-green-50 rounded-lg">
+          <h4 className="text-xs font-bold text-green-500 uppercase">Active Today</h4>
+          <p className="text-2xl font-bold">{activeEmployeeIds.size}</p>
+        </div>
+        <div className="p-4 bg-red-50 rounded-lg">
+          <h4 className="text-xs font-bold text-red-500 uppercase">Inactive Today</h4>
+          <p className="text-2xl font-bold">{employees.length - activeEmployeeIds.size}</p>
+        </div>
+      </div>
+
       {editingEmployee && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
           <div className="bg-white rounded-[2rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in border border-white/20">
@@ -181,7 +200,10 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                    )}
                 </div>
               </div>
-              <button type="submit" className="w-full py-5 bg-black text-white rounded-2xl font-black uppercase text-[10px] shadow-xl active:scale-95 hover:bg-slate-800 transition-all mt-2 tracking-widest">Commit Changes</button>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => { onResetDaysWorked(editingEmployee.id); setEditingEmployee(null); }} className="w-full py-5 bg-orange-500 text-white rounded-2xl font-black uppercase text-[10px] shadow-xl active:scale-95 hover:bg-orange-600 transition-all mt-2 tracking-widest">Reset Days Worked</button>
+                <button type="submit" className="w-full py-5 bg-black text-white rounded-2xl font-black uppercase text-[10px] shadow-xl active:scale-95 hover:bg-slate-800 transition-all mt-2 tracking-widest">Commit Changes</button>
+              </div>
             </form>
           </div>
         </div>

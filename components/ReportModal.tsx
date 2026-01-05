@@ -4,16 +4,18 @@ import { X, Download, Printer, Calendar, ShieldCheck, Loader2, FileCheck, Users,
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { dataService } from '../services/dataService';
-import { AttendanceSession, AttendanceLog } from '../types';
+import { AttendanceSession, AttendanceLog, Employee } from '../types';
 
 interface ReportModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
   data: AttendanceLog[];
+  employees: Employee[];
+  logs: AttendanceLog[];
 }
 
-const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, title, data }) => {
+const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, title, data, employees, logs }) => {
   const [isCompiling, setIsCompiling] = useState(false);
   const [progress, setProgress] = useState(0);
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
@@ -37,8 +39,20 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, title, data 
     const total = sessions.length;
     const stillIn = sessions.filter(s => s.timeOut === 'Still in premise').length;
     const completed = total - stillIn;
-    return { total, stillIn, completed };
-  }, [sessions]);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const activeIds = new Set<string>();
+    logs.forEach(log => {
+      if (log.timestamp >= today.getTime() && log.action === 'LOGIN') {
+        activeIds.add(log.subjectId);
+      }
+    });
+    const active = activeIds.size;
+    const absent = employees.length - active;
+
+    return { total, stillIn, completed, active, absent };
+  }, [sessions, employees, logs]);
 
   if (!isOpen) return null;
 
@@ -227,8 +241,10 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, title, data 
                  {[
                    { icon: Calendar, label: 'CERTIFICATION DATE', value: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) },
                    { icon: ShieldCheck, label: 'INTEGRITY STATUS', value: 'SYSTEM VERIFIED' },
-                   { icon: Users, label: 'TOTAL PERSONNEL', value: `${reportStats.total}` },
-                   { icon: Briefcase, label: 'REGISTRY TYPE', value: 'MASTER LOG' }
+                   { icon: Users, label: 'TOTAL EMPLOYEES', value: `${employees.length}` },
+                   { icon: Briefcase, label: 'REGISTRY TYPE', value: 'MASTER LOG' },
+                   { icon: Users, label: 'ACTIVE TODAY', value: `${reportStats.active}` },
+                   { icon: Users, label: 'ABSENT TODAY', value: `${reportStats.absent}` },
                  ].map((stat, i) => (
                    <div key={i} className="p-4 bg-slate-50 border border-slate-100 rounded-xl flex flex-col gap-1.5">
                      <div className="flex items-center gap-2">

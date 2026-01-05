@@ -4,6 +4,7 @@ import { Lock, RefreshCcw, ShieldAlert, X, Loader2, Menu } from 'lucide-react';
 import { dataService } from '../services/dataService';
 import { Employee, AttendanceLog, SystemSettings, Notice, Department, InformalLog } from '../types';
 import AdminSidebar, { AdminTab } from '../components/AdminSidebar';
+import BottomNavBar from '../components/BottomNavBar';
 import ReportModal from '../components/ReportModal';
 import Notification from '../components/Notification';
 
@@ -154,6 +155,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
     }
   };
 
+  const handleResetDaysWorked = async (id: string) => {
+    try {
+      await dataService.resetDaysWorked(id);
+      setEmployees(prev => prev.map(emp => emp.id === id ? { ...emp, totalDaysWorked: 0 } : emp));
+      setAdminNotification({ id: Date.now(), msg: "Days Worked Reset", sub: "Success", type: 'success' });
+    } catch (err) {
+      setAdminNotification({ id: Date.now(), msg: "Reset Failed", sub: "Error", type: 'error' });
+    }
+  };
+
   const handleAddDepartment = async (name: string) => {
     try {
       const added = await dataService.addDepartment(name);
@@ -216,6 +227,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
     if (activeTab === 'STAFF_LOGS') return logs;
     return [...logs, ...visitorLogs];
   }, [activeTab, logs, visitorLogs]);
+
+  const activeEmployeeIds = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const activeIds = new Set<string>();
+    logs.forEach(log => {
+      if (log.timestamp >= today.getTime() && log.action === 'LOGIN') {
+        activeIds.add(log.subjectId);
+      }
+    });
+    return activeIds;
+  }, [logs]);
 
   return (
     <div className="flex flex-col md:flex-row h-screen w-full bg-white text-slate-900 overflow-hidden relative">
@@ -284,20 +307,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
               </button>
             </header>
 
-            <div className="flex-grow overflow-auto p-4 md:p-8 bg-slate-50/30">
+            <div className="flex-grow overflow-auto p-4 md:p-8 bg-slate-50/30 pb-20 md:pb-8">
               <div className="max-w-7xl mx-auto">
                 {activeTab === 'OVERVIEW' && settings && <AdminOverview employees={employees} logs={logs} onQuickAction={handleQuickAction} settings={settings} />}
-                {activeTab === 'EMPLOYEES' && <StaffDirectory employees={employees} departments={departments} onAddEmployee={handleAddEmployee} onUpdateEmployee={handleUpdateEmployee} onDeleteEmployee={handleDeleteEmployee} searchQuery={searchQuery} setSearchQuery={setSearchQuery} highlightedId={highlightedId} handleSuggestionClick={handleSuggestionClick} />}
+                {activeTab === 'EMPLOYEES' && <StaffDirectory employees={employees} departments={departments} onAddEmployee={handleAddEmployee} onUpdateEmployee={handleUpdateEmployee} onDeleteEmployee={handleDeleteEmployee} onResetDaysWorked={handleResetDaysWorked} searchQuery={searchQuery} setSearchQuery={setSearchQuery} highlightedId={highlightedId} handleSuggestionClick={handleSuggestionClick} activeEmployeeIds={activeEmployeeIds} />}
                 {activeTab === 'OUTSIDE_WORK' && <OutsideWork employees={employees} departments={departments} onRefresh={loadData} />}
                 {activeTab === 'STAFF_LOGS' && <StaffLogs logs={logs} employees={employees} searchQuery={searchQuery} setSearchQuery={setSearchQuery} activeFilter={activeFilter} setActiveFilter={setActiveFilter} onReportOpen={() => setIsReportOpen(true)} onWipeLogs={() => setShowPurgeModal(true)} highlightedId={highlightedId} handleSuggestionClick={handleSuggestionClick} />}
                 {activeTab === 'GATE_LOG' && <GateLog logs={informalLogs} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onReportOpen={() => setIsReportOpen(true)} />}
-                {activeTab === 'VISITOR_LOGS' && <VisitorLogs logs={visitorLogs} employees={employees} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onReportOpen={() => setIsReportOpen(true)} highlightedId={highlightedId} handleSuggestionClick={handleSuggestionClick} />}
+                {activeTab === 'VISITOR_LOGS' && <VisitorLogs logs={visitorLogs} employees={employees} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onReportOpen={() => setIsReportOpen(true)} highlightedId={highlightedId} handleSuggestionClick={handleSuggestionClick} onRefresh={loadData} />}
                 {activeTab === 'NOTICES' && <Notices notices={notices} onAdd={handleAddNotice} onToggle={(id, active) => handleUpdateNotice(id, { isActive: active })} onDelete={handleDeleteNotice} />}
                 {activeTab === 'SETTINGS' && <Settings settings={settings} setSettings={setSettings} departments={departments} onAddDepartment={handleAddDepartment} onUpdateDepartment={handleUpdateDepartment} onDeleteDepartment={handleDeleteDepartment} onSave={handleSaveSettings} />}
               </div>
             </div>
 
-            <ReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} title={activeTab} data={filteredReportLogs} />
+            <ReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} title={activeTab} data={filteredReportLogs} employees={employees} logs={logs} />
+            <BottomNavBar activeTab={activeTab} onTabChange={setActiveTab} />
           </main>
         </>
       )}

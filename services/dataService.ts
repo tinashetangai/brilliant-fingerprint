@@ -269,16 +269,44 @@ export const dataService = {
 
   processVerification: async (employee: Employee, action: AttendanceAction, confidence: number): Promise<{ success: boolean; error?: string }> => {
     try {
-      const now = Date.now();
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+      // Add the new attendance log regardless
       await dataService.addLog({
         subjectId: String(employee.id).trim(),
         subjectName: employee.name,
-        timestamp: now,
+        timestamp: now.getTime(),
         status: LogStatus.SUCCESS,
         action: action,
         confidence: confidence,
         type: 'EMPLOYEE'
       });
+
+      if (action === AttendanceAction.LOGIN) {
+        // Check for an existing login for the same day
+        const q = query(
+          collection(db, LOGS_COL),
+          where("subjectId", "==", String(employee.id).trim()),
+          where("action", "==", AttendanceAction.LOGIN),
+          where("timestamp", ">=", startOfDay)
+        );
+        const loginTodaySnap = await getDocs(q);
+
+        // If it's the first login of the day, increment days worked
+        if (loginTodaySnap.empty || loginTodaySnap.docs.length === 1) { // length will be 1 because we just added one
+          const empRef = doc(db, EMPLOYEES_COL, String(employee.id).trim());
+          const empSnap = await getDoc(empRef);
+          if (empSnap.exists()) {
+            const currentDays = empSnap.data().totalDaysWorked || 0;
+            await updateDoc(empRef, { totalDaysWorked: currentDays + 1 });
+            console.log(`[ATTENDANCE] First login for ${employee.name}, incrementing days worked.`);
+          }
+        } else {
+          console.log(`[ATTENDANCE] Subsequent login for ${employee.name}, not incrementing days worked.`);
+        }
+      }
+
       console.log(`[ATTENDANCE] ${action} successful for ${employee.name}`);
       return { success: true };
     } catch (e: any) {
@@ -359,6 +387,24 @@ export const dataService = {
 
   deleteEmployee: async (id: string): Promise<void> => {
     await deleteDoc(doc(db, EMPLOYEES_COL, String(id).trim()));
+  },
+
+  checkoutVisitor: async (visitorId: string, visitorName: string): Promise<void> => {
+    const now = Date.now();
+    await dataService.addLog({
+      subjectId: visitorId,
+      subjectName: visitorName,
+      timestamp: now,
+      status: LogStatus.SUCCESS,
+      action: AttendanceAction.LOGOUT,
+      confidence: 1.0,
+      type: 'VISITOR'
+    });
+    console.log(`[VISITOR] Checkout successful for ${visitorName}`);
+  },
+
+  resetDaysWorked: async (id: string): Promise<void> => {
+    await updateDoc(doc(db, EMPLOYEES_COL, String(id).trim()), { totalDaysWorked: 0 });
   },
 
   getDepartments: async (): Promise<Department[]> => {
