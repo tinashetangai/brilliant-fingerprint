@@ -7,17 +7,35 @@ import { LogStatus, AttendanceAction } from '../types';
 interface VisitorModalProps {
   isOpen: boolean;
   onClose: () => void;
+  firstName: string;
+  setFirstName: (name: string) => void;
+  lastName: string;
+  setLastName: (name: string) => void;
+  reason: string;
+  setReason: (reason: string) => void;
+  identityType: 'ZIM_ID' | 'PASSPORT';
+  setIdentityType: (type: 'ZIM_ID' | 'PASSPORT') => void;
+  identityNumber: string;
+  setIdentityNumber: (num: string) => void;
 }
 
 type VisitorStep = 'action' | 'form' | 'capture' | 'success';
 
-const VisitorModal: React.FC<VisitorModalProps> = ({ isOpen, onClose }) => {
+const VisitorModal: React.FC<VisitorModalProps> = ({
+  isOpen,
+  onClose,
+  firstName,
+  setFirstName,
+  lastName,
+  setLastName,
+  reason,
+  setReason,
+  identityType,
+  setIdentityType,
+  identityNumber,
+  setIdentityNumber
+}) => {
   const [step, setStep] = useState<VisitorStep>('action');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [reason, setReason] = useState('Meeting');
-  const [identityType, setIdentityType] = useState<'ZIM_ID' | 'PASSPORT'>('ZIM_ID');
-  const [identityNumber, setIdentityNumber] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [action, setAction] = useState<AttendanceAction>(AttendanceAction.LOGIN);
   const [validationError, setValidationError] = useState<string | null>(null);

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   UserPlus,
@@ -39,6 +40,13 @@ const Home: React.FC = () => {
   } | null>(null);
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  // Visitor Modal State
+  const [visitorFirstName, setVisitorFirstName] = useState('');
+  const [visitorLastName, setVisitorLastName] = useState('');
+  const [visitorReason, setVisitorReason] = useState('Meeting');
+  const [visitorIdentityType, setVisitorIdentityType] = useState<'ZIM_ID' | 'PASSPORT'>('ZIM_ID');
+  const [visitorIdentityNumber, setVisitorIdentityNumber] = useState('');
 
   /* ===================== TIME + SYNC ===================== */
   useEffect(() => {
@@ -267,6 +275,16 @@ const Home: React.FC = () => {
       <VisitorModal
         isOpen={isVisitorModalOpen}
         onClose={() => setIsVisitorModalOpen(false)}
+        firstName={visitorFirstName}
+        setFirstName={setVisitorFirstName}
+        lastName={visitorLastName}
+        setLastName={setVisitorLastName}
+        reason={visitorReason}
+        setReason={setVisitorReason}
+        identityType={visitorIdentityType}
+        setIdentityType={setVisitorIdentityType}
+        identityNumber={visitorIdentityNumber}
+        setIdentityNumber={setVisitorIdentityNumber}
       />
     </div>
   );
