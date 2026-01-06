@@ -12,7 +12,7 @@ import { AttendanceAction, Employee } from '../types';
 
 interface CameraModalProps {
   isOpen: boolean;
-  action: AttendanceAction; // ✅ SOURCE OF TRUTH
+  action: AttendanceAction;
   onClose: () => void;
   onAuthSuccess?: (
     employee: Employee,
@@ -36,31 +36,34 @@ const CameraModal: React.FC<CameraModalProps> = ({
 
   const [authMode, setAuthMode] = useState<AuthMode>(isGatePass ? 'PIN' : 'BIO');
   const [pin, setPin] = useState('');
-  const [authStatus, setAuthStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+  const [authStatus, setAuthStatus] =
+    useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [feedback, setFeedback] = useState('');
 
   /* ================= RESET ================= */
-  useEffect(() => {
-    if (isOpen) {
-      resetAuth();
-      if (!isGatePass) handleBiometricAuth(true);
-    } else {
-      resetAuth();
-    }
-  }, [isOpen, isGatePass]);
-
-  useEffect(() => {
-    if (pin.length === 4 && authStatus === 'idle') {
-      handlePinVerification(pin);
-    }
-  }, [pin]);
-
   const resetAuth = () => {
     setPin('');
     setAuthStatus('idle');
     setFeedback('');
     setAuthMode(isGatePass ? 'PIN' : 'BIO');
   };
+
+  useEffect(() => {
+    if (isOpen) {
+      resetAuth();
+      if (!isGatePass) {
+        handleBiometricAuth(true);
+      }
+    } else {
+      resetAuth();
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (pin.length === 4 && authStatus === 'idle') {
+      handlePinVerification(pin);
+    }
+  }, [pin]);
 
   /* ================= BIOMETRIC ================= */
   const handleBiometricAuth = async (silent = false) => {
@@ -108,21 +111,18 @@ const CameraModal: React.FC<CameraModalProps> = ({
 
   /* ================= CORE AUTH ================= */
   const processAuth = async (employee: Employee) => {
-    let res;
-    let resolvedAction: AttendanceAction = action;
+    const last = await dataService.getUserLastAction(employee.id);
 
-    if (isGatePass) {
-      res = await dataService.processInformalLog(employee);
-      resolvedAction = AttendanceAction.GATE_OUT;
-    } else {
-      const last = await dataService.getUserLastAction(employee.id);
-      resolvedAction =
-        last === AttendanceAction.LOGIN
-          ? AttendanceAction.LOGOUT
-          : AttendanceAction.LOGIN;
+    const resolvedAction =
+      last === AttendanceAction.LOGIN
+        ? AttendanceAction.LOGOUT
+        : AttendanceAction.LOGIN;
 
-      res = await dataService.processVerification(employee, resolvedAction, 1.0);
-    }
+    const res = await dataService.processVerification(
+      employee,
+      resolvedAction,
+      1.0
+    );
 
     if (res?.success) {
       setAuthStatus('success');
@@ -156,28 +156,66 @@ const CameraModal: React.FC<CameraModalProps> = ({
           </button>
         </div>
 
-        {/* BODY */}
-        <div className="px-8 py-12 min-h-[420px] flex flex-col items-center justify-center">
-
-          {authMode === 'BIO' && !isGatePass ? (
-            <>
-              <div className={`w-44 h-44 rounded-full border-4 flex items-center justify-center transition-all
-                ${authStatus === 'processing' ? 'border-emerald-500 animate-pulse' :
-                  authStatus === 'error' ? 'border-red-500' : 'border-slate-200'}`}>
-                <Fingerprint size={90} />
+        <div className="px-8 py-12 flex flex-col items-center justify-center min-h-[450px]">
+          {authMode === 'BIO' ? (
+            <div className="flex flex-col items-center justify-center space-y-12 animate-in fade-in zoom-in">
+              <div
+                className={`relative w-44 h-44 rounded-full flex items-center justify-center border-4 transition-all duration-700 ${
+                  authStatus === 'processing'
+                    ? 'border-emerald-500 bg-emerald-50 shadow-[0_0_40px_-10px_rgba(16,185,129,0.5)]'
+                    : authStatus === 'error'
+                    ? 'border-red-500 bg-red-50 shadow-[0_0_40px_-10px_rgba(239,68,68,0.5)]'
+                    : 'border-slate-100 bg-slate-50'
+                }`}
+              >
+                <Fingerprint
+                  size={96}
+                  className={`transition-colors duration-500 ${
+                    authStatus === 'processing'
+                      ? 'text-emerald-500 animate-pulse'
+                      : authStatus === 'error'
+                      ? 'text-red-500'
+                      : 'text-slate-200'
+                  }`}
+                />
+                {authStatus === 'processing' && (
+                  <div className="absolute inset-0 rounded-full border-4 border-emerald-500/20 animate-ping" />
+                )}
               </div>
 
-              <p className="mt-6 text-xs font-black uppercase tracking-widest text-slate-400">
-                {feedback || 'Place Thumb'}
-              </p>
+              <div className="text-center space-y-3">
+                <h2 className="text-3xl font-black uppercase text-black">
+                  PLACE THUMB
+                </h2>
+                <p
+                  className={`text-[11px] font-black uppercase tracking-[0.2em] ${
+                    authStatus === 'error'
+                      ? 'text-red-600'
+                      : 'text-slate-400'
+                  }`}
+                >
+                  {feedback || 'On Hardware Scanner'}
+                </p>
+              </div>
 
-              <button
-                onClick={() => setAuthMode('PIN')}
-                className="mt-8 px-6 py-3 border rounded-xl text-xs font-black uppercase flex gap-2"
-              >
-                <Keyboard size={14} /> Use PIN
-              </button>
-            </>
+              <div className="flex flex-col gap-4 w-full">
+                {authStatus === 'error' && (
+                  <button
+                    onClick={() => handleBiometricAuth(false)}
+                    className="py-4 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  >
+                    <RefreshCcw size={14} /> Retry Biometric Scan
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setAuthMode('PIN')}
+                  className="flex items-center justify-center gap-2 py-4 border-2 border-slate-100 rounded-2xl text-[10px] font-black uppercase text-slate-400 hover:text-black hover:border-black transition-all"
+                >
+                  <Keyboard size={16} /> Use PIN Fallback
+                </button>
+              </div>
+            </div>
           ) : (
             <>
               <div className="flex gap-3 mb-10">
@@ -185,7 +223,9 @@ const CameraModal: React.FC<CameraModalProps> = ({
                   <div
                     key={i}
                     className={`w-4 h-4 rounded-full border-2 ${
-                      pin.length > i ? 'bg-black border-black' : 'border-gray-200'
+                      pin.length > i
+                        ? 'bg-black border-black'
+                        : 'border-gray-200'
                     }`}
                   />
                 ))}
@@ -207,21 +247,20 @@ const CameraModal: React.FC<CameraModalProps> = ({
                 ))}
               </div>
 
-              <p className="mt-6 text-xs font-black uppercase tracking-widest text-slate-400">
-                {feedback || 'Enter Secure PIN'}
-              </p>
-
-              {!isGatePass && (
+              <div className="flex flex-col items-center gap-4">
+                <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                  {feedback || 'Enter Secure Registry PIN'}
+                </p>
                 <button
                   onClick={() => {
                     setAuthMode('BIO');
                     handleBiometricAuth(true);
                   }}
-                  className="mt-4 text-xs font-black uppercase text-emerald-600 underline"
+                  className="text-[10px] font-black uppercase text-emerald-600 underline"
                 >
-                  Use Fingerprint
+                  Switch back to Fingerprint
                 </button>
-              )}
+              </div>
             </>
           )}
         </div>
