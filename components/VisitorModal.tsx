@@ -53,12 +53,11 @@ const VisitorModal: React.FC<VisitorModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      if (action === AttendanceAction.LOGOUT) loadActiveVisitors();
-    } else {
       reset();
+    } else {
       stopCamera();
     }
-  }, [isOpen, action]);
+  }, [isOpen]);
 
   useEffect(() => {
     // Auto-start camera when entering capture step
@@ -146,7 +145,7 @@ const VisitorModal: React.FC<VisitorModalProps> = ({
         type: 'VISITOR'
       });
       setStep('success');
-      setTimeout(() => { onClose(); reset(); }, 2500);
+      setTimeout(() => { onClose(); }, 2500);
     } catch (err) {
       setValidationError("System Error. Please try again.");
     } finally {
