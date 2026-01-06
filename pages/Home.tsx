@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   UserPlus,
@@ -13,7 +14,6 @@ import {
 } from 'lucide-react';
 
 import CameraModal from '../components/CameraModal';
-import GatePassModal from '../components/GatePassModal';
 import VisitorModal from '../components/VisitorModal';
 import Notification from '../components/Notification';
 import SuccessModal from '../components/SuccessModal';
@@ -22,7 +22,6 @@ import { AttendanceAction, Notice } from '../types';
 
 const Home: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isGatePassModalOpen, setIsGatePassModalOpen] = useState(false);
   const [modalAction, setModalAction] = useState<AttendanceAction>(AttendanceAction.LOGIN);
   const [isVisitorModalOpen, setIsVisitorModalOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -41,6 +40,13 @@ const Home: React.FC = () => {
   } | null>(null);
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  // Visitor Modal State
+  const [visitorFirstName, setVisitorFirstName] = useState('');
+  const [visitorLastName, setVisitorLastName] = useState('');
+  const [visitorReason, setVisitorReason] = useState('Meeting');
+  const [visitorIdentityType, setVisitorIdentityType] = useState<'ZIM_ID' | 'PASSPORT'>('ZIM_ID');
+  const [visitorIdentityNumber, setVisitorIdentityNumber] = useState('');
 
   /* ===================== TIME + SYNC ===================== */
   useEffect(() => {
@@ -216,7 +222,7 @@ const Home: React.FC = () => {
           {/* ACTIONS */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
-              onClick={() => setIsGatePassModalOpen(true)}
+              onClick={() => triggerAuthModal(AttendanceAction.GATE_OUT)}
               className="bg-blue-600 text-white rounded-2xl p-4 flex flex-col items-center gap-2"
             >
               <DoorOpen size={20} />
@@ -266,21 +272,19 @@ const Home: React.FC = () => {
         status="idle"
       />
 
-      <GatePassModal
-        isOpen={isGatePassModalOpen}
-        onClose={() => setIsGatePassModalOpen(false)}
-        onAuthSuccess={(emp, dur, act) => {
-          setLastUser(emp);
-          setLastDuration(dur);
-          setModalAction(act || modalAction);
-          setShowSuccessModal(true);
-          setIsGatePassModalOpen(false);
-        }}
-      />
-
       <VisitorModal
         isOpen={isVisitorModalOpen}
         onClose={() => setIsVisitorModalOpen(false)}
+        firstName={visitorFirstName}
+        setFirstName={setVisitorFirstName}
+        lastName={visitorLastName}
+        setLastName={setVisitorLastName}
+        reason={visitorReason}
+        setReason={setVisitorReason}
+        identityType={visitorIdentityType}
+        setIdentityType={setVisitorIdentityType}
+        identityNumber={visitorIdentityNumber}
+        setIdentityNumber={setVisitorIdentityNumber}
       />
     </div>
   );
