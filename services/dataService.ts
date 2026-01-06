@@ -26,6 +26,7 @@ const SETTINGS_DOC = "config/system";
 const NOTICES_COL = "notices";
 const DEPARTMENTS_COL = "departments";
 const FREQUENT_VISITORS_COL = "frequent_visitors";
+const OVERTIME_REQUESTS_COL = "overtime_requests";
 
 /**
  * Normalizes timestamps from various sources (seconds, milliseconds, Firestore, strings)
@@ -455,5 +456,63 @@ export const dataService = {
     gateSnap.docs.forEach(d => batch.delete(d.ref));
     visSnap.docs.forEach(d => batch.delete(d.ref));
     await batch.commit();
+  },
+
+  getOvertimeRequests: async (): Promise<OvertimeRequest[]> => {
+    const q = query(collection(db, OVERTIME_REQUESTS_COL), orderBy("date", "desc"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as OvertimeRequest));
+  },
+
+  updateOvertimeRequest: async (id: string, status: 'APPROVED' | 'DENIED'): Promise<void> => {
+    const requestRef = doc(db, OVERTIME_REQUESTS_COL, id);
+    await updateDoc(requestRef, { status });
+
+    if (status === 'APPROVED') {
+      const requestSnap = await getDoc(requestRef);
+      if (!requestSnap.exists()) return;
+
+      const request = requestSnap.data();
+      const logQuery = query(
+        collection(db, LOGS_COL),
+        where("subjectId", "==", request.employeeId),
+        where("date", "==", request.date),
+        where("action", "==", "LOGOUT"),
+        orderBy("timestamp", "desc"),
+        limit(1)
+      );
+
+      const logSnap = await getDocs(logQuery);
+      if (!logSnap.empty) {
+        const logDoc = logSnap.docs[0];
+        const currentHours = logDoc.data().workedHours || 0;
+        await updateDoc(logDoc.ref, {
+          workedHours: currentHours + request.hours
+        });
+      }
+    }
+  },
+
+  generateReport: (logs: AttendanceLog[], employees: Employee[]): string => {
+    const headers = ["Employee", "Department", "Date", "Hours Worked", "Overtime"];
+
+    const empMap = employees.reduce((acc, e) => ({ ...acc, [e.id]: e.department }), {} as Record<string, string>);
+
+    const rows = logs
+      .filter(log => log.action === 'LOGOUT')
+      .map(log => [
+        log.subjectName,
+        empMap[log.subjectId] || 'N/A',
+        log.date,
+        log.workedHours?.toFixed(2) || '0.00',
+        log.overtimeHours?.toFixed(2) || '0.00'
+      ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.join(","))
+    ].join("\n");
+
+    return csvContent;
   }
 };

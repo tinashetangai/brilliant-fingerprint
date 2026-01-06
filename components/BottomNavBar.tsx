@@ -5,7 +5,8 @@ import {
   Settings,
   BarChart3,
   Briefcase,
-  Megaphone
+  Megaphone,
+  Clock
 } from 'lucide-react';
 import { AdminTab } from './AdminSidebar';
 
@@ -19,7 +20,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab, onTabChange }) =
     { id: 'OVERVIEW' as const, icon: BarChart3, label: 'Dashboard' },
     { id: 'EMPLOYEES' as const, icon: Users, label: 'Employees' },
     { id: 'STAFF_LOGS' as const, icon: Briefcase, label: 'Logs' },
-    { id: 'NOTICES' as const, icon: Megaphone, label: 'Notices' },
+    { id: 'OVERTIME' as const, icon: Clock, label: 'Overtime' },
     { id: 'SETTINGS' as const, icon: Settings, label: 'Settings' }
   ];
 

@@ -10,10 +10,11 @@ import {
   Megaphone,
   BarChart3,
   Truck,
-  DoorOpen
+  DoorOpen,
+  Clock
 } from 'lucide-react';
 
-export type AdminTab = 'OVERVIEW' | 'EMPLOYEES' | 'OUTSIDE_WORK' | 'STAFF_LOGS' | 'VISITOR_LOGS' | 'GATE_LOG' | 'NOTICES' | 'SETTINGS' | 'FREQUENT_VISITORS';
+export type AdminTab = 'OVERVIEW' | 'EMPLOYEES' | 'OUTSIDE_WORK' | 'STAFF_LOGS' | 'VISITOR_LOGS' | 'GATE_LOG' | 'NOTICES' | 'SETTINGS' | 'FREQUENT_VISITORS' | 'OVERTIME';
 
 interface AdminSidebarProps {
   activeTab: AdminTab;
@@ -30,6 +31,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, onTabChange, onE
     { id: 'GATE_LOG' as const, icon: DoorOpen, label: 'Gate Log' },
     { id: 'VISITOR_LOGS' as const, icon: UserCheck, label: 'Visitor Logs' },
     { id: 'FREQUENT_VISITORS' as const, icon: Users, label: 'Frequent Visitors' },
+    { id: 'OVERTIME' as const, icon: Clock, label: 'Overtime' },
     { id: 'NOTICES' as const, icon: Megaphone, label: 'Announcements' },
     { id: 'SETTINGS' as const, icon: Settings, label: 'Settings' }
   ];

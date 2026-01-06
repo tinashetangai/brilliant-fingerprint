@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Lock, RefreshCcw, ShieldAlert, X, Loader2, Menu } from 'lucide-react';
 import { dataService } from '../services/dataService';
-import { Employee, AttendanceLog, SystemSettings, Notice, Department, InformalLog, FrequentVisitor } from '../types';
+import { Employee, AttendanceLog, SystemSettings, Notice, Department, InformalLog, FrequentVisitor, OvertimeRequest } from '../types';
 import AdminSidebar, { AdminTab } from '../components/AdminSidebar';
 import BottomNavBar from '../components/BottomNavBar';
 import ReportModal from '../components/ReportModal';
@@ -17,6 +17,7 @@ import Notices from '../admin/Notices';
 import Settings from '../admin/Settings';
 import OutsideWork from '../admin/OutsideWork';
 import FrequentVisitors from '../admin/FrequentVisitors';
+import OvertimeRequests from '../admin/OvertimeRequests';
 
 interface AdminDashboardProps {
   isAuthenticated: boolean;
@@ -35,6 +36,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [frequentVisitors, setFrequentVisitors] = useState<FrequentVisitor[]>([]);
+  const [overtimeRequests, setOvertimeRequests] = useState<OvertimeRequest[]>([]);
   
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -68,7 +70,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
     console.log(`[DASHBOARD] Refreshing all data registers...`);
     setIsRefreshing(true);
     try {
-      const [s, n, e, d, l, vl, i, fv] = await Promise.all([
+      const [s, n, e, d, l, vl, i, fv, or] = await Promise.all([
         dataService.getSettings(),
         dataService.getNotices(),
         dataService.getEmployees(),
@@ -76,7 +78,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
         dataService.getLogs(),
         dataService.getVisitorLogs(),
         dataService.getInformalLogs(),
-        dataService.getFrequentVisitors()
+        dataService.getFrequentVisitors(),
+        dataService.getOvertimeRequests()
       ]);
       setSettings(s);
       setNotices(n);
@@ -86,6 +89,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
       setVisitorLogs(vl);
       setInformalLogs(i);
       setFrequentVisitors(fv);
+      setOvertimeRequests(or);
       
       console.log(`[DASHBOARD_SYNC] Success. Employee Logs: ${l.length}, Visitor Logs: ${vl.length}, Gate Passes: ${i.length}, Frequent Visitors: ${fv.length}`);
     } catch (err) { 
@@ -247,6 +251,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
     } catch (e) { console.error(e); }
   };
 
+  const handleApproveOvertime = async (id: string) => {
+    try {
+      await dataService.updateOvertimeRequest(id, 'APPROVED');
+      setOvertimeRequests(prev => prev.map(req => req.id === id ? { ...req, status: 'APPROVED' } : req));
+      setAdminNotification({ id: Date.now(), msg: "Overtime Approved", sub: "Success", type: 'success' });
+    } catch (err) {
+      setAdminNotification({ id: Date.now(), msg: "Update Failed", sub: "Error", type: 'error' });
+    }
+  };
+
+  const handleDenyOvertime = async (id: string) => {
+    try {
+      await dataService.updateOvertimeRequest(id, 'DENIED');
+      setOvertimeRequests(prev => prev.map(req => req.id === id ? { ...req, status: 'DENIED' } : req));
+      setAdminNotification({ id: Date.now(), msg: "Overtime Denied", sub: "Success", type: 'success' });
+    } catch (err) {
+      setAdminNotification({ id: Date.now(), msg: "Update Failed", sub: "Error", type: 'error' });
+    }
+  };
+
   const handleQuickAction = (action: string) => {
     switch (action) {
       case 'ADD_STAFF': setActiveTab('EMPLOYEES'); break;
@@ -344,12 +368,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
             <div className="flex-grow overflow-auto p-4 md:p-8 bg-slate-50/30 pb-20 md:pb-8">
               <div className="max-w-7xl mx-auto">
                 {activeTab === 'OVERVIEW' && settings && <AdminOverview employees={employees} logs={logs} onQuickAction={handleQuickAction} settings={settings} />}
-                {activeTab === 'EMPLOYEES' && <StaffDirectory employees={employees} departments={departments} onAddEmployee={handleAddEmployee} onUpdateEmployee={handleUpdateEmployee} onDeleteEmployee={handleDeleteEmployee} onResetDaysWorked={handleResetDaysWorked} searchQuery={searchQuery} setSearchQuery={setSearchQuery} highlightedId={highlightedId} handleSuggestionClick={handleSuggestionClick} activeEmployeeIds={activeEmployeeIds} />}
+                {activeTab === 'EMPLOYEES' && <StaffDirectory employees={employees} departments={departments} logs={logs} onAddEmployee={handleAddEmployee} onUpdateEmployee={handleUpdateEmployee} onDeleteEmployee={handleDeleteEmployee} onResetDaysWorked={handleResetDaysWorked} searchQuery={searchQuery} setSearchQuery={setSearchQuery} highlightedId={highlightedId} handleSuggestionClick={handleSuggestionClick} activeEmployeeIds={activeEmployeeIds} />}
                 {activeTab === 'OUTSIDE_WORK' && <OutsideWork employees={employees} departments={departments} onRefresh={loadData} />}
                 {activeTab === 'STAFF_LOGS' && <StaffLogs logs={logs} employees={employees} searchQuery={searchQuery} setSearchQuery={setSearchQuery} activeFilter={activeFilter} setActiveFilter={setActiveFilter} onReportOpen={() => setIsReportOpen(true)} onWipeLogs={() => setShowPurgeModal(true)} highlightedId={highlightedId} handleSuggestionClick={handleSuggestionClick} />}
                 {activeTab === 'GATE_LOG' && <GateLog logs={informalLogs} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onReportOpen={() => setIsReportOpen(true)} />}
                 {activeTab === 'VISITOR_LOGS' && <VisitorLogs logs={visitorLogs} employees={employees} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onReportOpen={() => setIsReportOpen(true)} highlightedId={highlightedId} handleSuggestionClick={handleSuggestionClick} onRefresh={loadData} />}
                 {activeTab === 'FREQUENT_VISITORS' && <FrequentVisitors frequentVisitors={frequentVisitors} onAddFrequentVisitor={handleAddFrequentVisitor} onUpdateFrequentVisitor={handleUpdateFrequentVisitor} onDeleteFrequentVisitor={handleDeleteFrequentVisitor} />}
+                {activeTab === 'OVERTIME' && <OvertimeRequests requests={overtimeRequests} onApprove={handleApproveOvertime} onDeny={handleDenyOvertime} />}
                 {activeTab === 'NOTICES' && <Notices notices={notices} onAdd={handleAddNotice} onToggle={(id, active) => handleUpdateNotice(id, { isActive: active })} onDelete={handleDeleteNotice} />}
                 {activeTab === 'SETTINGS' && <Settings settings={settings} setSettings={setSettings} departments={departments} onAddDepartment={handleAddDepartment} onUpdateDepartment={handleUpdateDepartment} onDeleteDepartment={handleDeleteDepartment} onSave={handleSaveSettings} />}
               </div>

@@ -1,14 +1,17 @@
 
 import React, { useState, useMemo } from 'react';
-import { Search, Trash2, Edit3, X, AlertCircle, Loader2, QrCode, Download, Fingerprint, Key, Filter, SortAsc, SortDesc, Cpu, Calendar } from 'lucide-react';
-import { Employee, Department } from '../types';
+import { Search, Trash2, Edit3, X, AlertCircle, Loader2, QrCode, Download, Fingerprint, Key, Filter, SortAsc, SortDesc, Cpu, Calendar, User } from 'lucide-react';
+import { Employee, Department, AttendanceLog } from '../types';
 import { db } from '../backend/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import QRCode from 'qrcode';
+import EmployeeProfile from './EmployeeProfile';
+import { dataService } from '../services/dataService';
 
 interface StaffDirectoryProps {
   employees: Employee[];
   departments: Department[];
+  logs: AttendanceLog[];
   onAddEmployee: (emp: { name: string; email: string; department: string; pin: string; fingerprintHash: string; phoneNumber?: string; nextOfKin?: string; address?: string; }) => void;
   onUpdateEmployee: (id: string, emp: Partial<Employee>) => Promise<void>;
   onDeleteEmployee: (id: string) => Promise<void>;
@@ -23,6 +26,7 @@ interface StaffDirectoryProps {
 const StaffDirectory: React.FC<StaffDirectoryProps> = ({ 
   employees, 
   departments,
+  logs,
   onAddEmployee, 
   onUpdateEmployee,
   onDeleteEmployee,
@@ -39,6 +43,8 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
   const [sortOrder, setSortOrder] = useState<'A-Z' | 'Z-A'>('A-Z');
   
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [biometricStatus, setBiometricStatus] = useState<{msg: string, loading: boolean} | null>(null);
 
@@ -134,8 +140,35 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
     link.click();
   };
 
+  const handleOpenProfile = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setIsProfileOpen(true);
+  };
+
+  const handleCloseProfile = () => {
+    setIsProfileOpen(false);
+    setSelectedEmployee(null);
+  };
+
+  const generateMonthlyReport = async () => {
+    const csvContent = dataService.generateReport(logs, employees);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8,' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'monthly_attendance_report.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500 relative">
+      <EmployeeProfile
+        employee={selectedEmployee}
+        onClose={handleCloseProfile}
+        logs={selectedEmployee ? logs.filter(log => log.subjectId === selectedEmployee.id) : []}
+      />
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="p-4 bg-gray-50 rounded-lg">
@@ -243,9 +276,14 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
           </button>
         </div>
         
-        <button onClick={() => setShowAddForm(!showAddForm)} className="px-8 py-3 bg-black text-white rounded-xl text-[10px] font-black uppercase shadow-lg hover:scale-105 active:scale-95 transition-all tracking-wider">
-          {showAddForm ? 'Close Registration' : 'New Enrollment'}
-        </button>
+        <div className="flex gap-2">
+          <button onClick={generateMonthlyReport} className="px-8 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg hover:scale-105 active:scale-95 transition-all tracking-wider">
+            Generate Monthly Report
+          </button>
+          <button onClick={() => setShowAddForm(!showAddForm)} className="px-8 py-3 bg-black text-white rounded-xl text-[10px] font-black uppercase shadow-lg hover:scale-105 active:scale-95 transition-all tracking-wider">
+            {showAddForm ? 'Close Registration' : 'New Enrollment'}
+          </button>
+        </div>
       </div>
 
       {showAddForm && (
@@ -315,7 +353,7 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                 </td>
                 <td className="px-8 py-5 text-center">
                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-[10px] font-black uppercase tracking-widest">
-                      <Calendar size={12}/> {emp.totalDaysWorked || 0} Days
+                      <Calendar size={12}/> {(emp.totalDaysWorked || 0).toFixed(2)} Days
                    </div>
                 </td>
                 <td className="px-8 py-5 text-center">
@@ -326,6 +364,7 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                 </td>
                 <td className="px-8 py-5 text-right">
                   <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => handleOpenProfile(emp)} title="View Profile" className="p-2.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all"><User size={18} /></button>
                     <button onClick={() => setEditingEmployee(emp)} className="p-2.5 text-slate-400 hover:text-black hover:bg-slate-100 rounded-xl transition-all"><Edit3 size={18} /></button>
                     <button onClick={() => setShowDeleteConfirm(emp.id)} className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 size={18} /></button>
                   </div>

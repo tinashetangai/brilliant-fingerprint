@@ -96,6 +96,17 @@ export interface AttendanceLog {
   type: 'EMPLOYEE' | 'VISITOR';
   category?: 'EARLY' | 'LATE' | 'ON-TIME';
   isOutsideWork?: boolean;
+  workedHours?: number;
+  overtimeHours?: number;
+}
+
+export interface OvertimeRequest {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  date: string;
+  hours: number;
+  status: 'PENDING' | 'APPROVED' | 'DENIED';
 }
 
 export interface InformalLog {
