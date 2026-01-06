@@ -112,7 +112,7 @@ const FrequentVisitors: React.FC<FrequentVisitorsProps> = ({
                       <Cpu size={18}/> Initiate Remote Enrollment
                    </button>
                    {biometricStatus && (
-                     <div className={\`p-3 rounded-xl border text-center text-[10px] font-bold uppercase \${biometricStatus.msg.includes('Error') ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}\`}>
+                     <div className={`p-3 rounded-xl border text-center text-[10px] font-bold uppercase ${biometricStatus.msg.includes('Error') ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>
                         {biometricStatus.loading && <Loader2 size={12} className="inline animate-spin mr-2"/>}
                         {biometricStatus.msg}
                      </div>
