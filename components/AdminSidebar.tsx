@@ -13,7 +13,7 @@ import {
   DoorOpen
 } from 'lucide-react';
 
-export type AdminTab = 'OVERVIEW' | 'EMPLOYEES' | 'OUTSIDE_WORK' | 'STAFF_LOGS' | 'VISITOR_LOGS' | 'GATE_LOG' | 'NOTICES' | 'SETTINGS';
+export type AdminTab = 'OVERVIEW' | 'EMPLOYEES' | 'OUTSIDE_WORK' | 'STAFF_LOGS' | 'VISITOR_LOGS' | 'GATE_LOG' | 'NOTICES' | 'SETTINGS' | 'FREQUENT_VISITORS';
 
 interface AdminSidebarProps {
   activeTab: AdminTab;
@@ -29,6 +29,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, onTabChange, onE
     { id: 'STAFF_LOGS' as const, icon: Briefcase, label: 'Attendance Logs' },
     { id: 'GATE_LOG' as const, icon: DoorOpen, label: 'Gate Log' },
     { id: 'VISITOR_LOGS' as const, icon: UserCheck, label: 'Visitor Logs' },
+    { id: 'FREQUENT_VISITORS' as const, icon: Users, label: 'Frequent Visitors' },
     { id: 'NOTICES' as const, icon: Megaphone, label: 'Announcements' },
     { id: 'SETTINGS' as const, icon: Settings, label: 'Settings' }
   ];
