@@ -56,10 +56,13 @@ export interface Employee {
   pin: string;
   fingerprintHash: string;
   qrCodeData: string;
-  imageId?: string; 
+  imageId?: string;
   createdAt: number;
   outsideWorkUntil?: number | null;
   totalDaysWorked?: number; // New: Tracking lifetime days
+  phoneNumber?: string;
+  nextOfKin?: string;
+  address?: string;
 }
 
 export interface Visitor {
@@ -71,6 +74,15 @@ export interface Visitor {
   identityNumber: string;
   timestamp: number;
   photoBase64?: string;
+}
+
+export interface FrequentVisitor {
+  id: string;
+  name: string;
+  surname: string;
+  idNumber: string;
+  phone: string;
+  fingerprintHash: string;
 }
 
 export interface AttendanceLog {

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Lock, RefreshCcw, ShieldAlert, X, Loader2, Menu } from 'lucide-react';
 import { dataService } from '../services/dataService';
-import { Employee, AttendanceLog, SystemSettings, Notice, Department, InformalLog } from '../types';
+import { Employee, AttendanceLog, SystemSettings, Notice, Department, InformalLog, FrequentVisitor } from '../types';
 import AdminSidebar, { AdminTab } from '../components/AdminSidebar';
 import BottomNavBar from '../components/BottomNavBar';
 import ReportModal from '../components/ReportModal';
@@ -16,6 +16,7 @@ import GateLog from '../admin/GateLog';
 import Notices from '../admin/Notices';
 import Settings from '../admin/Settings';
 import OutsideWork from '../admin/OutsideWork';
+import FrequentVisitors from '../admin/FrequentVisitors';
 
 interface AdminDashboardProps {
   isAuthenticated: boolean;
@@ -33,6 +34,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
   const [informalLogs, setInformalLogs] = useState<InformalLog[]>([]);
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [notices, setNotices] = useState<Notice[]>([]);
+  const [frequentVisitors, setFrequentVisitors] = useState<FrequentVisitor[]>([]);
   
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -66,14 +68,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
     console.log(`[DASHBOARD] Refreshing all data registers...`);
     setIsRefreshing(true);
     try {
-      const [s, n, e, d, l, vl, i] = await Promise.all([
-        dataService.getSettings(), 
+      const [s, n, e, d, l, vl, i, fv] = await Promise.all([
+        dataService.getSettings(),
         dataService.getNotices(),
         dataService.getEmployees(),
         dataService.getDepartments(),
         dataService.getLogs(),
         dataService.getVisitorLogs(),
-        dataService.getInformalLogs()
+        dataService.getInformalLogs(),
+        dataService.getFrequentVisitors()
       ]);
       setSettings(s);
       setNotices(n);
@@ -82,8 +85,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
       setLogs(l);
       setVisitorLogs(vl);
       setInformalLogs(i);
+      setFrequentVisitors(fv);
       
-      console.log(`[DASHBOARD_SYNC] Success. Employee Logs: ${l.length}, Visitor Logs: ${vl.length}, Gate Passes: ${i.length}`);
+      console.log(`[DASHBOARD_SYNC] Success. Employee Logs: ${l.length}, Visitor Logs: ${vl.length}, Gate Passes: ${i.length}, Frequent Visitors: ${fv.length}`);
     } catch (err) { 
       console.error(`[DASHBOARD_SYNC] Failed to fetch registers:`, err);
     }
@@ -125,7 +129,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
     setSearchQuery(name);
   };
 
-  const handleAddEmployee = async (newEmp: any) => {
+  const handleAddEmployee = async (newEmp: { name: string; email: string; department: string; pin: string; fingerprintHash: string; phoneNumber?: string; nextOfKin?: string; address?: string; }) => {
     try {
       const added = await dataService.addEmployee(newEmp);
       setEmployees(prev => [...prev, added]);
@@ -150,6 +154,36 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
       await dataService.deleteEmployee(id);
       setEmployees(prev => prev.filter(emp => emp.id !== id));
       setAdminNotification({ id: Date.now(), msg: "Employee Deleted", sub: "Removed permanently", type: 'success' });
+    } catch (err) {
+      setAdminNotification({ id: Date.now(), msg: "Delete Failed", sub: "Error", type: 'error' });
+    }
+  };
+
+  const handleAddFrequentVisitor = async (visitor: Omit<FrequentVisitor, 'id'>) => {
+    try {
+      const added = await dataService.addFrequentVisitor(visitor);
+      setFrequentVisitors(prev => [...prev, added]);
+      setAdminNotification({ id: Date.now(), msg: "Frequent Visitor Added", sub: `${added.name} saved`, type: 'success' });
+    } catch (err) {
+      setAdminNotification({ id: Date.now(), msg: "Registration Failed", sub: "Please try again", type: 'error' });
+    }
+  };
+
+  const handleUpdateFrequentVisitor = async (id: string, updatedData: Partial<FrequentVisitor>) => {
+    try {
+      await dataService.updateFrequentVisitor(id, updatedData);
+      setFrequentVisitors(prev => prev.map(visitor => visitor.id === id ? { ...visitor, ...updatedData } : visitor));
+      setAdminNotification({ id: Date.now(), msg: "Frequent Visitor Updated", sub: "Success", type: 'success' });
+    } catch (err) {
+      setAdminNotification({ id: Date.now(), msg: "Update Failed", sub: "Error", type: 'error' });
+    }
+  };
+
+  const handleDeleteFrequentVisitor = async (id: string) => {
+    try {
+      await dataService.deleteFrequentVisitor(id);
+      setFrequentVisitors(prev => prev.filter(visitor => visitor.id !== id));
+      setAdminNotification({ id: Date.now(), msg: "Frequent Visitor Deleted", sub: "Removed permanently", type: 'success' });
     } catch (err) {
       setAdminNotification({ id: Date.now(), msg: "Delete Failed", sub: "Error", type: 'error' });
     }
@@ -315,6 +349,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
                 {activeTab === 'STAFF_LOGS' && <StaffLogs logs={logs} employees={employees} searchQuery={searchQuery} setSearchQuery={setSearchQuery} activeFilter={activeFilter} setActiveFilter={setActiveFilter} onReportOpen={() => setIsReportOpen(true)} onWipeLogs={() => setShowPurgeModal(true)} highlightedId={highlightedId} handleSuggestionClick={handleSuggestionClick} />}
                 {activeTab === 'GATE_LOG' && <GateLog logs={informalLogs} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onReportOpen={() => setIsReportOpen(true)} />}
                 {activeTab === 'VISITOR_LOGS' && <VisitorLogs logs={visitorLogs} employees={employees} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onReportOpen={() => setIsReportOpen(true)} highlightedId={highlightedId} handleSuggestionClick={handleSuggestionClick} onRefresh={loadData} />}
+                {activeTab === 'FREQUENT_VISITORS' && <FrequentVisitors frequentVisitors={frequentVisitors} onAddFrequentVisitor={handleAddFrequentVisitor} onUpdateFrequentVisitor={handleUpdateFrequentVisitor} onDeleteFrequentVisitor={handleDeleteFrequentVisitor} />}
                 {activeTab === 'NOTICES' && <Notices notices={notices} onAdd={handleAddNotice} onToggle={(id, active) => handleUpdateNotice(id, { isActive: active })} onDelete={handleDeleteNotice} />}
                 {activeTab === 'SETTINGS' && <Settings settings={settings} setSettings={setSettings} departments={departments} onAddDepartment={handleAddDepartment} onUpdateDepartment={handleUpdateDepartment} onDeleteDepartment={handleDeleteDepartment} onSave={handleSaveSettings} />}
               </div>

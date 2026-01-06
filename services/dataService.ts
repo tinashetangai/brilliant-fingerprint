@@ -25,6 +25,7 @@ const INFORMAL_LOGS_COL = "informal_logs";
 const SETTINGS_DOC = "config/system";
 const NOTICES_COL = "notices";
 const DEPARTMENTS_COL = "departments";
+const FREQUENT_VISITORS_COL = "frequent_visitors";
 
 /**
  * Normalizes timestamps from various sources (seconds, milliseconds, Firestore, strings)
@@ -424,6 +425,25 @@ export const dataService = {
 
   deleteDepartment: async (id: string): Promise<void> => {
     await deleteDoc(doc(db, DEPARTMENTS_COL, id));
+  },
+
+  addFrequentVisitor: async (visitor: Omit<FrequentVisitor, 'id'>): Promise<FrequentVisitor> => {
+    const docRef = await addDoc(collection(db, FREQUENT_VISITORS_COL), visitor);
+    return { id: docRef.id, ...visitor } as FrequentVisitor;
+  },
+
+  getFrequentVisitors: async (): Promise<FrequentVisitor[]> => {
+    const q = query(collection(db, FREQUENT_VISITORS_COL), orderBy("name"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FrequentVisitor));
+  },
+
+  updateFrequentVisitor: async (id: string, visitor: Partial<FrequentVisitor>): Promise<void> => {
+    await setDoc(doc(db, FREQUENT_VISITORS_COL, id), visitor, { merge: true });
+  },
+
+  deleteFrequentVisitor: async (id: string): Promise<void> => {
+    await deleteDoc(doc(db, FREQUENT_VISITORS_COL, id));
   },
 
   wipeLogs: async (): Promise<void> => {

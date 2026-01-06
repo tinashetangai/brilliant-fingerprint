@@ -9,7 +9,7 @@ import QRCode from 'qrcode';
 interface StaffDirectoryProps {
   employees: Employee[];
   departments: Department[];
-  onAddEmployee: (emp: { name: string; email: string; department: string; pin: string; fingerprintHash: string }) => void;
+  onAddEmployee: (emp: { name: string; email: string; department: string; pin: string; fingerprintHash: string; phoneNumber?: string; nextOfKin?: string; address?: string; }) => void;
   onUpdateEmployee: (id: string, emp: Partial<Employee>) => Promise<void>;
   onDeleteEmployee: (id: string) => Promise<void>;
   onResetDaysWorked: (id: string) => Promise<void>;
@@ -34,7 +34,7 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
   activeEmployeeIds
 }) => {
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newEmp, setNewEmp] = useState({ name: '', email: '', department: '', pin: '', fingerprintHash: '' });
+  const [newEmp, setNewEmp] = useState({ name: '', email: '', department: '', pin: '', fingerprintHash: '', phoneNumber: '', nextOfKin: '', address: '' });
   const [selectedDeptFilter, setSelectedDeptFilter] = useState<string>('ALL');
   const [sortOrder, setSortOrder] = useState<'A-Z' | 'Z-A'>('A-Z');
   
@@ -180,6 +180,18 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                     <input required className="w-full px-5 py-3 bg-gray-50 border border-gray-200 rounded-xl font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none" value={editingEmployee.pin} onChange={e => setEditingEmployee({...editingEmployee, pin: e.target.value})} />
                   </div>
                 </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1 block">Phone Number</label>
+                  <input className="w-full px-5 py-3 bg-gray-50 border border-gray-200 rounded-xl font-semibold text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none" value={editingEmployee.phoneNumber || ''} onChange={e => setEditingEmployee({...editingEmployee, phoneNumber: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1 block">Next of Kin</label>
+                  <input className="w-full px-5 py-3 bg-gray-50 border border-gray-200 rounded-xl font-semibold text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none" value={editingEmployee.nextOfKin || ''} onChange={e => setEditingEmployee({...editingEmployee, nextOfKin: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1 block">Address</label>
+                  <input className="w-full px-5 py-3 bg-gray-50 border border-gray-200 rounded-xl font-semibold text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none" value={editingEmployee.address || ''} onChange={e => setEditingEmployee({...editingEmployee, address: e.target.value})} />
+                </div>
                 
                 <div className="p-6 bg-slate-900 rounded-[2rem] flex flex-col gap-4 shadow-xl border border-white/5">
                    <div className="flex justify-between items-center text-white">
@@ -253,6 +265,18 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
             <div className="space-y-1">
               <label className="text-[9px] font-black uppercase text-slate-400 ml-2">Hardware ID (PIN)</label>
               <input required placeholder="Numeric ID (e.g. 101)" className="w-full p-4 bg-white border-slate-200 border rounded-2xl text-sm font-black shadow-sm focus:ring-2 focus:ring-black outline-none" value={newEmp.pin} onChange={e => setNewEmp({...newEmp, pin: e.target.value})} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black uppercase text-slate-400 ml-2">Phone Number</label>
+              <input placeholder="Phone Number" className="w-full p-4 bg-white border-slate-200 border rounded-2xl text-sm font-bold shadow-sm focus:ring-2 focus:ring-black outline-none" value={newEmp.phoneNumber} onChange={e => setNewEmp({...newEmp, phoneNumber: e.target.value})} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black uppercase text-slate-400 ml-2">Next of Kin</label>
+              <input placeholder="Next of Kin" className="w-full p-4 bg-white border-slate-200 border rounded-2xl text-sm font-bold shadow-sm focus:ring-2 focus:ring-black outline-none" value={newEmp.nextOfKin} onChange={e => setNewEmp({...newEmp, nextOfKin: e.target.value})} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black uppercase text-slate-400 ml-2">Address</label>
+              <input placeholder="Address" className="w-full p-4 bg-white border-slate-200 border rounded-2xl text-sm font-bold shadow-sm focus:ring-2 focus:ring-black outline-none" value={newEmp.address} onChange={e => setNewEmp({...newEmp, address: e.target.value})} />
             </div>
             <div className="lg:col-span-3">
               <button onClick={handleSubmit} className="w-full py-4 bg-black text-white rounded-2xl font-black uppercase text-xs shadow-lg active:scale-95 transition-all tracking-widest">Register User</button>
