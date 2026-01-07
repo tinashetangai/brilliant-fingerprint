@@ -5,10 +5,14 @@ import { Employee, Department } from '../types';
 import { db } from '../backend/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import QRCode from 'qrcode';
+import { attendanceCalculator } from '../services/attendanceCalculator';
+import { SystemSettings, AttendanceLog } from '../types';
 
 interface StaffDirectoryProps {
   employees: Employee[];
   departments: Department[];
+  logs: AttendanceLog[];
+  settings: SystemSettings | null;
   onAddEmployee: (emp: { name: string; email: string; department: string; pin: string; fingerprintHash: string; phoneNumber?: string; nextOfKin?: string; address?: string; }) => void;
   onUpdateEmployee: (id: string, emp: Partial<Employee>) => Promise<void>;
   onDeleteEmployee: (id: string) => Promise<void>;
@@ -23,6 +27,8 @@ interface StaffDirectoryProps {
 const StaffDirectory: React.FC<StaffDirectoryProps> = ({ 
   employees, 
   departments,
+  logs,
+  settings,
   onAddEmployee, 
   onUpdateEmployee,
   onDeleteEmployee,
@@ -315,7 +321,17 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                 </td>
                 <td className="px-8 py-5 text-center">
                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-[10px] font-black uppercase tracking-widest">
-                      <Calendar size={12}/> {emp.totalDaysWorked || 0} Days
+                      <Calendar size={12}/>
+                      {
+                        (() => {
+                          if (settings) {
+                            const empLogs = logs.filter(log => log.subjectId === emp.id);
+                            const attendanceData = attendanceCalculator.calculateEmployeeAttendance(empLogs, settings);
+                            return attendanceData.totalDaysWorked.toFixed(2);
+                          }
+                          return 0;
+                        })()
+                      } Days
                    </div>
                 </td>
                 <td className="px-8 py-5 text-center">

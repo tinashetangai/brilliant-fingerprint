@@ -17,6 +17,7 @@ import Notices from '../admin/Notices';
 import Settings from '../admin/Settings';
 import OutsideWork from '../admin/OutsideWork';
 import FrequentVisitors from '../admin/FrequentVisitors';
+import OvertimeManagement from '../admin/OvertimeManagement';
 
 interface AdminDashboardProps {
   isAuthenticated: boolean;
@@ -350,6 +351,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
                 {activeTab === 'GATE_LOG' && <GateLog logs={informalLogs} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onReportOpen={() => setIsReportOpen(true)} />}
                 {activeTab === 'VISITOR_LOGS' && <VisitorLogs logs={visitorLogs} employees={employees} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onReportOpen={() => setIsReportOpen(true)} highlightedId={highlightedId} handleSuggestionClick={handleSuggestionClick} onRefresh={loadData} />}
                 {activeTab === 'FREQUENT_VISITORS' && <FrequentVisitors frequentVisitors={frequentVisitors} onAddFrequentVisitor={handleAddFrequentVisitor} onUpdateFrequentVisitor={handleUpdateFrequentVisitor} onDeleteFrequentVisitor={handleDeleteFrequentVisitor} />}
+                {activeTab === 'OVERTIME' && <OvertimeManagement />}
                 {activeTab === 'NOTICES' && <Notices notices={notices} onAdd={handleAddNotice} onToggle={(id, active) => handleUpdateNotice(id, { isActive: active })} onDelete={handleDeleteNotice} />}
                 {activeTab === 'SETTINGS' && <Settings settings={settings} setSettings={setSettings} departments={departments} onAddDepartment={handleAddDepartment} onUpdateDepartment={handleUpdateDepartment} onDeleteDepartment={handleDeleteDepartment} onSave={handleSaveSettings} />}
               </div>
