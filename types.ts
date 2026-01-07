@@ -41,6 +41,8 @@ export interface SystemSettings {
   earlyThreshold: string;
   dayStart: string;
   dayEnd: string;
+  lunchTime: number; // in minutes
+  breakTime: number; // in minutes
   outsideLogin: string;
   outsideLogout: string;
   companyMotto: string;

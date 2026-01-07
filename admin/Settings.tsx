@@ -147,6 +147,19 @@ const Settings: React.FC<SettingsProps> = ({
                 <p className="text-[9px] text-gray-400 font-bold leading-relaxed px-2">
                   Adjusting these times will rebuild the analytics chart scope. Standard start is usually 06:00 AM.
                 </p>
+                 <div className="grid grid-cols-2 gap-4 pt-4">
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black uppercase text-gray-400 ml-2 tracking-widest">Lunch Time (mins)</label>
+                    <input type="number" value={settings.lunchTime || 0} onChange={e => setSettings({...settings, lunchTime: parseInt(e.target.value, 10) || 0})} className="w-full px-5 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl font-black text-sm outline-none focus:ring-2 focus:ring-black" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black uppercase text-gray-400 ml-2 tracking-widest">Break Time (mins)</label>
+                    <input type="number" value={settings.breakTime || 0} onChange={e => setSettings({...settings, breakTime: parseInt(e.target.value, 10) || 0})} className="w-full px-5 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl font-black text-sm outline-none focus:ring-2 focus:ring-black" />
+                  </div>
+                </div>
+                 <p className="text-[9px] text-gray-400 font-bold leading-relaxed px-2">
+                  These durations are automatically deducted from the total worked hours for day shifts.
+                </p>
               </div>
 
               <div className="space-y-6">

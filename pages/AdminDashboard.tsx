@@ -57,7 +57,47 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
 
   useEffect(() => {
     if (isAuthenticated) loadData();
-  }, [isAuthenticated, activeTab]);
+  }, [isAuthenticated]);
+
+  // Separate effect for one-time actions after data is loaded the first time
+  useEffect(() => {
+    if (isAuthenticated && employees.length > 0 && logs.length > 0) {
+      processAndCreateOvertimeRequests();
+    }
+  }, [isAuthenticated, employees, logs]);
+
+
+  const processAndCreateOvertimeRequests = async () => {
+    console.log("[OvertimeProcessor] Starting batch overtime check...");
+    const fetchedSettings = await dataService.getSettings();
+    if (!fetchedSettings) {
+      console.error("[OvertimeProcessor] Could not retrieve settings.");
+      return;
+    }
+
+    for (const employee of employees) {
+      const employeeLogs = logs.filter(log => log.subjectId === employee.id);
+      if (employeeLogs.length === 0) continue;
+
+      const calculatedData = dataService.calculateEmployeeAttendance(employeeLogs, fetchedSettings);
+
+      for (const date in calculatedData) {
+        const day = calculatedData[date];
+        if (day.overtimeHours > 0.01) { // Use a small threshold
+          await dataService.createOvertimeRequest({
+            employeeId: employee.id,
+            employeeName: employee.name,
+            date: date,
+            hours: day.overtimeHours
+          });
+        }
+      }
+    }
+    console.log("[OvertimeProcessor] Batch check complete.");
+    // Re-fetch requests to update the UI
+    const or = await dataService.getOvertimeRequests();
+    setOvertimeRequests(or);
+  };
 
   const loadSettingsOnly = async () => {
     try {
@@ -190,16 +230,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
       setAdminNotification({ id: Date.now(), msg: "Frequent Visitor Deleted", sub: "Removed permanently", type: 'success' });
     } catch (err) {
       setAdminNotification({ id: Date.now(), msg: "Delete Failed", sub: "Error", type: 'error' });
-    }
-  };
-
-  const handleResetDaysWorked = async (id: string) => {
-    try {
-      await dataService.resetDaysWorked(id);
-      setEmployees(prev => prev.map(emp => emp.id === id ? { ...emp, totalDaysWorked: 0 } : emp));
-      setAdminNotification({ id: Date.now(), msg: "Days Worked Reset", sub: "Success", type: 'success' });
-    } catch (err) {
-      setAdminNotification({ id: Date.now(), msg: "Reset Failed", sub: "Error", type: 'error' });
     }
   };
 
@@ -368,7 +398,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
             <div className="flex-grow overflow-auto p-4 md:p-8 bg-slate-50/30 pb-20 md:pb-8">
               <div className="max-w-7xl mx-auto">
                 {activeTab === 'OVERVIEW' && settings && <AdminOverview employees={employees} logs={logs} onQuickAction={handleQuickAction} settings={settings} />}
-                {activeTab === 'EMPLOYEES' && <StaffDirectory employees={employees} departments={departments} logs={logs} onAddEmployee={handleAddEmployee} onUpdateEmployee={handleUpdateEmployee} onDeleteEmployee={handleDeleteEmployee} onResetDaysWorked={handleResetDaysWorked} searchQuery={searchQuery} setSearchQuery={setSearchQuery} highlightedId={highlightedId} handleSuggestionClick={handleSuggestionClick} activeEmployeeIds={activeEmployeeIds} />}
+                {activeTab === 'EMPLOYEES' && <StaffDirectory employees={employees} departments={departments} logs={logs} onAddEmployee={handleAddEmployee} onUpdateEmployee={handleUpdateEmployee} onDeleteEmployee={handleDeleteEmployee} searchQuery={searchQuery} setSearchQuery={setSearchQuery} highlightedId={highlightedId} handleSuggestionClick={handleSuggestionClick} activeEmployeeIds={activeEmployeeIds} />}
                 {activeTab === 'OUTSIDE_WORK' && <OutsideWork employees={employees} departments={departments} onRefresh={loadData} />}
                 {activeTab === 'STAFF_LOGS' && <StaffLogs logs={logs} employees={employees} searchQuery={searchQuery} setSearchQuery={setSearchQuery} activeFilter={activeFilter} setActiveFilter={setActiveFilter} onReportOpen={() => setIsReportOpen(true)} onWipeLogs={() => setShowPurgeModal(true)} highlightedId={highlightedId} handleSuggestionClick={handleSuggestionClick} />}
                 {activeTab === 'GATE_LOG' && <GateLog logs={informalLogs} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onReportOpen={() => setIsReportOpen(true)} />}
