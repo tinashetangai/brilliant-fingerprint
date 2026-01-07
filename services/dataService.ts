@@ -87,10 +87,8 @@ export const dataService = {
       const isNightShift = dayEnd.getTime() < dayStart.getTime();
 
       if (isNightShift) {
-        // If the logout is on the next calendar day, the dayEnd should also be on the next day
-        if (new Date(logoutTime).getDate() !== new Date(loginTime).getDate()) {
-            dayEnd.setDate(dayEnd.getDate() + 1);
-        }
+        // For a night shift, the end of the workday is always on the next calendar day.
+        dayEnd.setDate(dayEnd.getDate() + 1);
       }
 
       // Calculate effective work period (intersection of actual work and official workday)
@@ -303,9 +301,10 @@ export const dataService = {
         let totalOvertimeHours = 0;
 
         Object.entries(attendance).forEach(([date, data]) => {
-            totalWorkedHours += data.workedHours;
             const approved = approvedOvertime[`${employee.id}-${date}`] || 0;
-            totalOvertimeHours += approved > 0 ? data.overtimeHours : 0;
+            // Add regular worked hours and any approved overtime to the total
+            totalWorkedHours += data.workedHours + approved;
+            totalOvertimeHours += approved;
         });
 
         employeeReportData[employee.id] = { totalWorkedHours, totalOvertimeHours };
