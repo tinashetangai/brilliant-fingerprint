@@ -22,6 +22,7 @@ import OvertimeManager from '../admin/OvertimeManager';
 import { attendanceCalculator } from '../services/attendanceCalculator';
 import { pdfReportGenerator } from '../services/pdfReport.generator';
 import { csvReportGenerator } from '../services/csvReport.generator';
+import { workedHoursService } from '../services/workedHoursService';
 
 interface AdminDashboardProps {
   isAuthenticated: boolean;
@@ -76,6 +77,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
   useEffect(() => {
     if (isAuthenticated) loadData();
   }, [isAuthenticated, activeTab]);
+
+  useEffect(() => {
+    if (isAuthenticated && settings && employees.length > 0 && logs.length > 0) {
+      employees.forEach(employee => {
+        workedHoursService.updateWorkedHours(employee, logs, overtimeDecisions, settings);
+      });
+    }
+  }, [isAuthenticated, employees, logs, overtimeDecisions, settings]);
 
   const loadSettingsOnly = async () => {
     try {
@@ -426,7 +435,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
                 {activeTab === 'VISITOR_LOGS' && <VisitorLogs logs={visitorLogs} employees={employees} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onReportOpen={() => setShowReportConfig(true)} highlightedId={highlightedId} handleSuggestionClick={handleSuggestionClick} onRefresh={loadData} />}
                 {activeTab === 'FREQUENT_VISITORS' && <FrequentVisitors frequentVisitors={frequentVisitors} onAddFrequentVisitor={handleAddFrequentVisitor} onUpdateFrequentVisitor={handleUpdateFrequentVisitor} onDeleteFrequentVisitor={handleDeleteFrequentVisitor} />}
                 {activeTab === 'NOTICES' && <Notices notices={notices} onAdd={handleAddNotice} onToggle={(id, active) => handleUpdateNotice(id, { isActive: active })} onDelete={handleDeleteNotice} />}
-                {activeTab === 'SETTINGS' && <Settings settings={settings} setSettings={setSettings} departments={departments} onAddDepartment={handleAddDepartment} onUpdateDepartment={handleUpdateDepartment} onDeleteDepartment={handleDeleteDepartment} onSave={handleSaveSettings} />}
+                {activeTab === 'SETTINGS' && <Settings settings={settings} setSettings={setSettings} departments={departments} employees={employees} onAddDepartment={handleAddDepartment} onUpdateDepartment={handleUpdateDepartment} onDeleteDepartment={handleDeleteDepartment} onSave={handleSaveSettings} />}
               </div>
             </div>
 

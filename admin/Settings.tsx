@@ -1,24 +1,27 @@
 
 import React, { useState, useEffect } from 'react';
-import { Save, Settings as SettingsIcon, Building2, Plus, Trash2, Edit2, Check, X, Clock, ShieldCheck, Briefcase, Lock, Loader, ChevronRight } from 'lucide-react';
-import { SystemSettings, Department } from '../types';
+import { Save, Settings as SettingsIcon, Building2, Plus, Trash2, Edit2, Check, X, Clock, ShieldCheck, Briefcase, Lock, Loader, ChevronRight, Download } from 'lucide-react';
+import { SystemSettings, Department, Employee } from '../types';
+import * as XLSX from 'xlsx';
 
 interface SettingsProps {
   settings: SystemSettings | null;
   setSettings: (settings: SystemSettings) => void;
   departments: Department[];
+  employees: Employee[];
   onAddDepartment: (name: string) => Promise<void>;
   onUpdateDepartment: (id: string, name: string) => Promise<void>;
   onDeleteDepartment: (id: string) => Promise<void>;
   onSave: (settings: SystemSettings) => Promise<void>;
 }
 
-type SettingsTab = 'TIME' | 'DEPARTMENTS' | 'COMPANY' | 'SECURITY';
+type SettingsTab = 'TIME' | 'DEPARTMENTS' | 'COMPANY' | 'SECURITY' | 'BACKUP';
 
 const Settings: React.FC<SettingsProps> = ({ 
   settings, 
   setSettings, 
-  departments, 
+  departments,
+  employees,
   onAddDepartment, 
   onUpdateDepartment, 
   onDeleteDepartment, 
@@ -33,6 +36,18 @@ const Settings: React.FC<SettingsProps> = ({
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [installPrompt, setInstallPrompt] = useState<any>(null);
+
+  const handleBackup = () => {
+    const data = employees.map(emp => ({
+      Name: emp.name,
+      PIN: emp.pin,
+      Department: emp.department
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Employees");
+    XLSX.writeFile(workbook, "employee_backup.xlsx");
+  };
 
   useEffect(() => {
     const handleInstallPrompt = (e: Event) => {
@@ -116,6 +131,7 @@ const Settings: React.FC<SettingsProps> = ({
           <TabButton id="DEPARTMENTS" icon={Building2} label="Units Registry" />
           <TabButton id="COMPANY" icon={Briefcase} label="Branding" />
           <TabButton id="SECURITY" icon={Lock} label="Security" />
+          <TabButton id="BACKUP" icon={Download} label="Backup" />
         </div>
       </div>
 
@@ -309,6 +325,28 @@ const Settings: React.FC<SettingsProps> = ({
                 </button>
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'BACKUP' && (
+          <div className="space-y-10 max-w-xl mx-auto animate-in fade-in slide-in-from-right-4 duration-300 pt-8">
+            <div className="text-center">
+              <div className="w-20 h-20 bg-green-50 text-green-600 rounded-[2rem] flex items-center justify-center mb-6 mx-auto shadow-inner border border-green-100">
+                <Download size={36} />
+              </div>
+              <h4 className="text-2xl font-black text-black uppercase tracking-tight">Backup Data</h4>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-2">Export employee data to an Excel file</p>
+            </div>
+
+            <div className="p-8 bg-gray-50 rounded-[2.5rem] border border-gray-100 shadow-sm text-center">
+              <p className="text-sm text-gray-600 mb-6">Click the button below to download a backup of all employees, including their name, PIN, and department.</p>
+              <button
+                onClick={handleBackup}
+                className="w-full py-5 bg-green-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 tracking-widest hover:bg-green-700"
+              >
+                <Download size={18} /> Export Employee Data
+              </button>
+            </div>
           </div>
         )}
       </div>

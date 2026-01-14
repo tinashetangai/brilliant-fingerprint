@@ -10,8 +10,13 @@ import { dataService } from './dataService';
 
 // Helper to convert "HH:MM" to decimal hours (e.g. "08:30" -> 8.5)
 const timeStringToDecimal = (timeStr: string): number => {
-  if (!timeStr) return 0;
+  if (!timeStr || typeof timeStr !== 'string' || !timeStr.includes(':')) {
+    return 0;
+  }
   const [h, m] = timeStr.split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) {
+    return 0;
+  }
   return h + (m / 60);
 };
 
@@ -36,11 +41,11 @@ export const attendanceCalculator = {
     const dailyRecords: DailyWorkRecord[] = [];
 
     // System Constraints
-    const dayStartDecimal = timeStringToDecimal(settings.dayStart);
-    const dayEndDecimal = timeStringToDecimal(settings.dayEnd);
-    const standardDayLength = settings.standardDayHours || 8;
-    const lunchDed = (settings.lunchDurationMinutes || 0) / 60;
-    const breakDed = (settings.breakDurationMinutes || 0) / 60;
+    const dayStartDecimal = timeStringToDecimal(settings?.dayStart);
+    const dayEndDecimal = timeStringToDecimal(settings?.dayEnd);
+    const standardDayLength = settings?.standardDayHours || 8;
+    const lunchDed = (settings?.lunchDurationMinutes || 0) / 60;
+    const breakDed = (settings?.breakDurationMinutes || 0) / 60;
 
     // Time Context for Live Calculations
     const now = new Date();
@@ -59,9 +64,7 @@ export const attendanceCalculator = {
       // Parse Date
       const [d, m, y] = session.date.split('/').map(Number);
       
-      const inTimeParts = session.timeIn.split(':').map(Number);
-      let inDecimal = inTimeParts[0] + (inTimeParts[1] / 60);
-      
+      let inDecimal = timeStringToDecimal(session.timeIn);
       let outDecimal = 0;
       let isLive = false;
 
@@ -77,8 +80,7 @@ export const attendanceCalculator = {
           outDecimal = dayEndDecimal; 
         }
       } else {
-        const outTimeParts = session.timeOut.split(':').map(Number);
-        outDecimal = outTimeParts[0] + (outTimeParts[1] / 60);
+        outDecimal = timeStringToDecimal(session.timeOut);
       }
 
       // Night Shift Detection
@@ -189,13 +191,13 @@ export const attendanceCalculator = {
     return employees.map(emp => {
       const records = attendanceCalculator.calculateEmployeeRecords(emp.id, logs, decisions, settings);
       
-      const totalHours = records.reduce((acc, r) => acc + r.totalContributedHours, 0);
-      const totalDays = records.reduce((acc, r) => acc + r.dayValue, 0);
+      const totalHours = records.reduce((acc, r) => acc + (r.totalContributedHours || 0), 0);
+      const totalDays = records.reduce((acc, r) => acc + (r.dayValue || 0), 0);
       
       return {
         ...emp,
-        calculatedTotalHours: totalHours.toFixed(1),
-        calculatedTotalDays: totalDays.toFixed(1)
+        calculatedTotalHours: (totalHours || 0).toFixed(1),
+        calculatedTotalDays: (totalDays || 0).toFixed(1)
       };
     });
   }
