@@ -23,7 +23,7 @@ const serviceAccount = require('./serviceAccountKey.json');
 
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
-    databaseURL: 'https://knockout-7d62d-default-rtdb.firebaseio.com'
+    databaseURL: 'https://brilliant-chemicals-default-rtdb.firebaseio.com'
 });
 
 const db = admin.firestore();

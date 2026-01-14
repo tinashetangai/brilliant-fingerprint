@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { Save, Settings as SettingsIcon, Building2, Plus, Trash2, Edit2, Check, X, Clock, ShieldCheck, Briefcase, Lock, Loader, ChevronRight, Download } from 'lucide-react';
+import { Save, Settings as SettingsIcon, Building2, Plus, Trash2, Edit2, Check, X, Clock, ShieldCheck, Briefcase, Lock, Loader, ChevronRight, Download, AlertTriangle } from 'lucide-react';
 import { SystemSettings, Department, Employee } from '../types';
 import * as XLSX from 'xlsx';
+import { seedService } from '../services/seedService';
 
 interface SettingsProps {
   settings: SystemSettings | null;
@@ -15,7 +16,7 @@ interface SettingsProps {
   onSave: (settings: SystemSettings) => Promise<void>;
 }
 
-type SettingsTab = 'TIME' | 'DEPARTMENTS' | 'COMPANY' | 'SECURITY' | 'BACKUP';
+type SettingsTab = 'TIME' | 'DEPARTMENTS' | 'COMPANY' | 'SECURITY' | 'BACKUP' | 'DANGER';
 
 const Settings: React.FC<SettingsProps> = ({ 
   settings, 
@@ -36,6 +37,15 @@ const Settings: React.FC<SettingsProps> = ({
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [seedStatus, setSeedStatus] = useState<{ F: 'idle' | 'loading' | 'done', message: string }>({ F: 'idle', message: '' });
+
+  const handleSeed = async () => {
+    if (window.confirm("Are you sure you want to seed the database? This can only be done on an empty database.")) {
+      setSeedStatus({ F: 'loading', message: 'Seeding...' });
+      const result = await seedService.seedDatabase();
+      setSeedStatus({ F: 'done', message: result.message });
+    }
+  };
 
   const handleBackup = () => {
     const data = employees.map(emp => ({
@@ -132,6 +142,7 @@ const Settings: React.FC<SettingsProps> = ({
           <TabButton id="COMPANY" icon={Briefcase} label="Branding" />
           <TabButton id="SECURITY" icon={Lock} label="Security" />
           <TabButton id="BACKUP" icon={Download} label="Backup" />
+          <TabButton id="DANGER" icon={AlertTriangle} label="Danger Zone" />
         </div>
       </div>
 
@@ -346,6 +357,36 @@ const Settings: React.FC<SettingsProps> = ({
               >
                 <Download size={18} /> Export Employee Data
               </button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'DANGER' && (
+          <div className="space-y-10 max-w-xl mx-auto animate-in fade-in slide-in-from-right-4 duration-300 pt-8">
+            <div className="text-center">
+              <div className="w-20 h-20 bg-red-50 text-red-600 rounded-[2rem] flex items-center justify-center mb-6 mx-auto shadow-inner border border-red-100">
+                <AlertTriangle size={36} />
+              </div>
+              <h4 className="text-2xl font-black text-black uppercase tracking-tight">Danger Zone</h4>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-2">Critical system operations</p>
+            </div>
+
+            <div className="p-8 bg-red-50/50 rounded-[2.5rem] border-2 border-dashed border-red-200 shadow-sm text-center">
+              <p className="text-sm text-red-900 mb-2 font-bold">Seed Database</p>
+              <p className="text-xs text-red-700/80 mb-6">This will populate your database with initial sample data. This should only be run on a completely new and empty project.</p>
+              <button
+                onClick={handleSeed}
+                disabled={seedStatus.F === 'loading'}
+                className="w-full py-5 bg-red-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 tracking-widest hover:bg-red-700 disabled:opacity-50"
+              >
+                {seedStatus.F === 'loading' ? <Loader className="animate-spin" size={18} /> : <AlertTriangle size={18} />}
+                Seed Database
+              </button>
+              {seedStatus.message && (
+                <p className={`mt-4 text-xs font-bold ${seedStatus.F === 'done' ? 'text-green-600' : 'text-yellow-600'}`}>
+                  {seedStatus.message}
+                </p>
+              )}
             </div>
           </div>
         )}

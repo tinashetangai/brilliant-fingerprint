@@ -58,7 +58,7 @@ export const attendanceCalculator = {
     });
     const [nowH, nowM] = formatter.format(now).split(':').map(Number);
     const nowDecimal = nowH + (nowM / 60);
-    const todayDateKey = now.toLocaleDateString('en-GB');
+    const todayDateKey = now.toLocaleDateString('en-GB', { timeZone: 'Africa/Harare' });
 
     sessions.forEach(session => {
       // Parse Date

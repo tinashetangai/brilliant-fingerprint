@@ -4,6 +4,7 @@ import Home from './pages/Home';
 import AdminDashboard from './pages/AdminDashboard';
 import LoginLogoutPrompt from './components/LoginLogoutPrompt';
 import { dataService } from './services/dataService';
+import { seedService } from './services/seedService';
 import { Employee, AttendanceAction, LogStatus } from './types';
 
 const App: React.FC = () => {

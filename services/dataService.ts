@@ -42,9 +42,11 @@ const normalizeTs = (ts: any): number => {
 
 export const dataService = {
   subscribeToLiveScans: (callback: (log: any) => void) => {
+    console.log("[DataService] Subscribing to live scans...");
     const scanRef = ref(rtdb, 'live_scans/latest');
     return onValue(scanRef, (snapshot) => {
       const data = snapshot.val();
+      console.log("[DataService] Received live scan data:", data);
       if (data && Date.now() - normalizeTs(data.timestamp) < 15000) { 
         callback({
           ...data,
@@ -72,11 +74,17 @@ export const dataService = {
   },
 
   getEmployees: async (): Promise<Employee[]> => {
-    const q = query(collection(db, EMPLOYEES_COL), orderBy("name"));
-    const snapshot = await getDocs(q);
-    const emps = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Employee));
-    console.log(`[DATA_SERVICE] Fetched ${emps.length} employees.`);
-    return emps;
+    console.log("[DataService] Fetching employees...");
+    try {
+      const q = query(collection(db, EMPLOYEES_COL), orderBy("name"));
+      const snapshot = await getDocs(q);
+      const emps = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Employee));
+      console.log(`[DATA_SERVICE] Fetched ${emps.length} employees.`);
+      return emps;
+    } catch (error) {
+      console.error("[DataService] Error fetching employees:", error);
+      return [];
+    }
   },
 
   // ... (keeping existing logic for buildSessions and getAttendanceSessions) ...
@@ -92,7 +100,7 @@ export const dataService = {
 
     sortedLogs.forEach(log => {
       const constTS = normalizeTs(log.timestamp);
-      const dateKey = new Date(constTS).toLocaleDateString('en-GB');
+      const dateKey = new Date(constTS).toLocaleDateString('en-GB', { timeZone: 'Africa/Harare' });
       const subjectId = String(log.subjectId).trim();
       
       if (!sessionsBySubject[subjectId]) {

@@ -1,98 +1,68 @@
 
-import { dataService } from './dataService';
+import { collection, writeBatch, getDocs } from "firebase/firestore";
+import { db } from "../backend/firebase";
+import { Department, Employee } from "../types";
 
-/**
- * MASTER DEPARTMENT DATA
- * Organized by Business Section -> Functional Unit
- */
-const DEPARTMENT_MAP = {
-  "Knockout": [
-    "Admin Department",
-    "Vehicle Maintenance",
-    "Production Maintenance Department",
-    "General hand / Maintenance",
-    "Stores & Dispatch",
-    "Sales Team",
-    "Sales Promoters Department",
-    "Shop Reliefer Department",
-    "Shop Attendants Department",
-    "Drivers Department",
-    "Production - Mixing",
-    "Production - Dishwasher Filling",
-    "Production - Shrink Tunnel",
-    "Production - Date Coding",
-    "Labeling & Date Coding",
-    "Loading Department",
-    "Toilet Cleaners - Filling",
-    "Quality Control",
-    "Toilet Cleaners - Labelling",
-    "Petroleum Jelly Department",
-    "Scouring Powder Department",
-    "Production Part-time",
-    "Canteen Department"
-  ],
-  "Matina": [
-    "Admin Department",
-    "Stores Department",
-    "Sales Team Department",
-    "Drivers and Assistance Department",
-    "Laboratory Department",
-    "Production - Mixers",
-    "Batching Department",
-    "Rotary Line Department",
-    "Manual Packing Department",
-    "Concentrates Mixing Department",
-    "Brook Waters Department",
-    "Labeling Machine Department",
-    "Manual Labeling Department"
-  ]
-};
+const DEPARTMENTS_COL = "departments";
+const EMPLOYEES_COL = "employees";
+
+// Sample Data
+const sampleDepartments: Omit<Department, 'id'>[] = [
+  { name: "Management" },
+  { name: "Human Resources" },
+  { name: "Engineering" },
+  { name: "Sales" },
+  { name: "Marketing" },
+];
+
+const sampleEmployees: Omit<Employee, 'id' | 'createdAt' | 'qrCodeData'>[] = [
+    { name: "Alice Johnson", pin: "1001", department: "Management" },
+    { name: "Bob Williams", pin: "1002", department: "Human Resources" },
+    { name: "Charlie Brown", pin: "1003", department: "Engineering" },
+    { name: "Diana Miller", pin: "1004", department: "Engineering" },
+    { name: "Ethan Davis", pin: "1005", department: "Sales" },
+    { name: "Fiona Garcia", pin: "1006", department: "Marketing" },
+];
 
 export const seedService = {
-  /**
-   * Runs the seeding operation for the Departments collection only.
-   * Employees must be added manually by administrators.
-   */
-  run: async (onProgress: (percent: number, status: string) => void) => {
+  seedDatabase: async (): Promise<{success: boolean, message: string}> => {
+    console.log("[SeedService] Starting database seed...");
+
+    // Prevent seeding if collections are not empty
+    const deptSnap = await getDocs(collection(db, DEPARTMENTS_COL));
+    const empSnap = await getDocs(collection(db, EMPLOYEES_COL));
+
+    if (!deptSnap.empty || !empSnap.empty) {
+        const message = "Database already contains data. Seed aborted.";
+        console.warn(`[SeedService] ${message}`);
+        return { success: false, message };
+    }
+
+    const batch = writeBatch(db);
+
+    // Seed Departments
+    sampleDepartments.forEach(dept => {
+      const docRef = collection(db, DEPARTMENTS_COL);
+      batch.set(doc(docRef), dept);
+    });
+
+    // Seed Employees
+    sampleEmployees.forEach(emp => {
+      const docRef = collection(db, EMPLOYEES_COL);
+      const qrCodeData = `EMP-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+      const newEmp = { ...emp, qrCodeData, createdAt: Date.now(), totalDaysWorked: 0 };
+      batch.set(doc(docRef), newEmp);
+    });
+
     try {
-      // 1. Verification: Only seed if the department list is empty
-      const existingDepts = await dataService.getDepartments();
-      if (existingDepts.length > 5) {
-        console.log("Department registry already seeded. Skipping operation.");
-        onProgress(100, "Registry check complete.");
-        return;
-      }
-
-      // 2. Preparation: Flatten the hierarchy into full names
-      const flatDepartments: string[] = [];
-      Object.entries(DEPARTMENT_MAP).forEach(([section, depts]) => {
-        depts.forEach(deptName => {
-          flatDepartments.push(`${section} - ${deptName}`);
-        });
-      });
-
-      const total = flatDepartments.length;
-      let current = 0;
-
-      console.log(`Seeding ${total} unique departments into Firestore...`);
-      onProgress(5, "Analyzing department hierarchy...");
-
-      // 3. Execution: Sequential seeding
-      for (const dName of flatDepartments) {
-        await dataService.addDepartment(dName);
-        current++;
-        
-        const percent = Math.round((current / total) * 100);
-        if (current % 5 === 0 || current === total) {
-          onProgress(percent, `Syncing Department: ${dName}`);
-        }
-      }
-
-      onProgress(100, "Department directory fully synchronized.");
-      console.log("Seeding process completed successfully.");
-    } catch (err) {
-      console.error("Seeding Error:", err);
-      onProgress(0, "Seeding failed. Check console.");
+      await batch.commit();
+      const message = `Successfully seeded ${sampleDepartments.length} departments and ${sampleEmployees.length} employees.`;
+      console.log(`[SeedService] ${message}`);
+      return { success: true, message };
+    } catch (error: any) {
+      const message = `Error seeding database: ${error.message}`;
+      console.error(`[SeedService] ${message}`);
+      return { success: false, message };
     }
   }
 };
