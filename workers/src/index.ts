@@ -383,13 +383,14 @@ async function handleAutoLogout(env: Env) {
         // Harare is UTC+2
         let dayEndUTC = new Date(Date.UTC(Number(y), Number(m)-1, Number(d), endH - 2, endM)).getTime();
 
-        // Handle night shift: if login was after dayEnd on that calendar day,
-        // then the relevant dayEnd is actually the next day.
+        // Night shift logic: if login was after dayEnd, target logout is next day
         if (lastLog.timestamp > dayEndUTC) {
           dayEndUTC += 24 * 3600 * 1000;
         }
 
-        if (nowRaw > dayEndUTC + 3600000 * 2) { // Give a 2 hour buffer after dayEnd
+        // Auto-logout triggers if they are still ONSITE.
+        // If this function is scheduled at 04:30 Harare, it will catch anyone who forgot to logout.
+        if (nowRaw > dayEndUTC) {
            const targetRaw = dayEndUTC;
            const harareDate = formatter.format(new Date(targetRaw));
            await createDocument(env, token, 'logs', {

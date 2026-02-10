@@ -43,7 +43,7 @@ const Settings: React.FC<SettingsProps> = ({
 
   // Batch Operation State
   const [batchLoading, setBatchLoading] = useState(false);
-  const [batchConfirm, setBatchConfirm] = useState<'LOGIN' | 'LOGOUT' | 'PURGE' | 'SEED' | 'RANDOM_IN' | 'RANDOM_OUT' | 'FORCE_OUT_RANDOM' | 'DELETE_DATE' | null>(null);
+  const [batchConfirm, setBatchConfirm] = useState<'LOGIN' | 'LOGOUT' | 'PURGE' | 'SEED' | 'RANDOM_IN' | 'RANDOM_OUT' | 'FORCE_OUT_RANDOM' | 'DELETE_DATE' | 'FILL_BLANKS' | null>(null);
   
   // Purge Log State
   const [purgeLogs, setPurgeLogs] = useState<string[]>([]);
@@ -87,6 +87,8 @@ const Settings: React.FC<SettingsProps> = ({
             await handleBatchRandomization(batchConfirm === 'RANDOM_IN' ? 'IN' : 'OUT');
         } else if (batchConfirm === 'DELETE_DATE') {
             await handleDeleteDateLogs();
+        } else if (batchConfirm === 'FILL_BLANKS') {
+            await handleFillBlanks();
         }
         onRefresh();
     } catch (e) {
@@ -95,6 +97,19 @@ const Settings: React.FC<SettingsProps> = ({
     } finally {
         setBatchLoading(false);
         setBatchConfirm(null);
+    }
+  };
+
+  const handleFillBlanks = async () => {
+    setPurgeLogs(["Starting gap-fill analysis..."]);
+    try {
+        const result = await dataService.fillMissingHistory((msg) => {
+            setPurgeLogs(prev => [...prev.slice(-15), `[${new Date().toLocaleTimeString()}] ${msg}`]);
+        });
+        alert(`Success! Generated ${result.count} missing records to fill system gaps.`);
+    } catch (e: any) {
+        console.error(e);
+        alert("Gap-fill failed.");
     }
   };
 
@@ -431,6 +446,8 @@ const Settings: React.FC<SettingsProps> = ({
                                 ? "This will randomize ALL Logout times for the selected date to 17:05-18:46."
                                 : batchConfirm === 'DELETE_DATE'
                                 ? "WARNING: This will PERMANENTLY DELETE all logs for the selected date. This action cannot be undone."
+                                : batchConfirm === 'FILL_BLANKS'
+                                ? "This will scan all previous days and automatically create missing Login (07:00-08:00) and Logout (16:00-18:00) records for all employees."
                                 : "This will forcefully log out ALL active workers with random times between 17:30 and 19:00."}
                         </p>
                     </div>
@@ -659,6 +676,30 @@ const Settings: React.FC<SettingsProps> = ({
                             >
                                 Select Workers for Batch Entry
                             </button>
+                        </div>
+
+                        <div className="p-6 bg-blue-50 border border-blue-100 rounded-2xl flex flex-col items-start gap-4 md:col-span-2">
+                            <div className="flex items-center gap-3">
+                                <Database size={20} className="text-blue-600" />
+                                <h4 className="text-sm font-black uppercase text-blue-900">Fill History Gaps (One-Click)</h4>
+                            </div>
+                            <p className="text-[10px] font-bold text-blue-600 mt-2">
+                                Automatically scans all previous dates. For any employee missing a record, it generates random <b>Logins (07:00-08:00)</b> and <b>Logouts (16:00-18:00)</b>.
+                            </p>
+                            <button
+                                onClick={() => setBatchConfirm('FILL_BLANKS')}
+                                disabled={batchLoading}
+                                className="w-full py-4 bg-blue-600 text-white rounded-xl font-black uppercase text-xs tracking-[0.2em] shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                            >
+                                <CheckSquare size={16} /> Fill All Missing Blanks
+                            </button>
+                            {batchLoading && batchConfirm === 'FILL_BLANKS' && (
+                                <div className="w-full mt-4 p-4 bg-black text-blue-400 font-mono text-[9px] rounded-xl h-24 overflow-y-auto border border-blue-900 shadow-inner">
+                                    {purgeLogs.map((l, i) => (
+                                        <div key={i}>{l}</div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                </div>

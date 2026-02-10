@@ -685,6 +685,82 @@ export const dataService = {
     };
     await Promise.all([deleteCollection(LOGS_COL), deleteCollection(VISITOR_LOGS_COL), deleteCollection(INFORMAL_LOGS_COL), deleteCollection(OVERTIME_DECISIONS_COL)]);
   },
+
+  fillMissingHistory: async (onProgress?: (msg: string) => void): Promise<{ count: number }> => {
+    const employees = await dataService.getEmployees();
+    const firstLogQuery = query(collection(db, LOGS_COL), orderBy("timestamp", "asc"), limit(1));
+    const firstLogSnap = await getDocs(firstLogQuery);
+    if (firstLogSnap.empty) return { count: 0 };
+
+    const firstLogTs = firstLogSnap.docs[0].data().timestamp;
+    const startDate = new Date(firstLogTs);
+    startDate.setHours(0, 0, 0, 0);
+
+    const endDate = new Date();
+    endDate.setHours(0, 0, 0, 0);
+
+    let addedTotal = 0;
+    const logsToAdd: Omit<AttendanceLog, 'id'>[] = [];
+
+    for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toLocaleDateString('en-GB', { timeZone: 'Africa/Harare' });
+        if (onProgress) onProgress(`Scanning ${dateStr}...`);
+
+        const dayLogs = await dataService.getLogsByDate(dateStr);
+        const [day, month, year] = dateStr.split('/').map(Number);
+
+        for (const emp of employees) {
+            const empDayLogs = dayLogs.filter(l => String(l.subjectId).trim() === String(emp.id).trim());
+            const hasLogin = empDayLogs.some(l => l.action === AttendanceAction.LOGIN);
+            const hasLogout = empDayLogs.some(l => l.action === AttendanceAction.LOGOUT);
+
+            if (!hasLogin) {
+                const loginTs = new Date(Date.UTC(year, month - 1, day, 5, 0, 0)).getTime() + Math.floor(Math.random() * 3600000);
+                logsToAdd.push({
+                    subjectId: emp.id,
+                    subjectName: emp.name,
+                    timestamp: loginTs,
+                    action: AttendanceAction.LOGIN,
+                    status: LogStatus.SUCCESS,
+                    type: 'EMPLOYEE',
+                    confidence: 1.0,
+                    source: 'AUTO_FILL_HISTORY',
+                    date: dateStr
+                });
+            }
+
+            if (!hasLogout) {
+                const logoutTs = new Date(Date.UTC(year, month - 1, day, 14, 0, 0)).getTime() + Math.floor(Math.random() * 7200000);
+                logsToAdd.push({
+                    subjectId: emp.id,
+                    subjectName: emp.name,
+                    timestamp: logoutTs,
+                    action: AttendanceAction.LOGOUT,
+                    status: LogStatus.SUCCESS,
+                    type: 'EMPLOYEE',
+                    confidence: 1.0,
+                    source: 'AUTO_FILL_HISTORY',
+                    date: dateStr
+                });
+            }
+
+            if (logsToAdd.length >= 400) {
+              if (onProgress) onProgress(`Syncing ${logsToAdd.length} records...`);
+              const res = await dataService.batchAddLogs(logsToAdd);
+              addedTotal += res.count;
+              logsToAdd.length = 0;
+            }
+        }
+    }
+
+    if (logsToAdd.length > 0) {
+        const res = await dataService.batchAddLogs(logsToAdd);
+        addedTotal += res.count;
+    }
+
+    return { count: addedTotal };
+  },
+
   getOvertimeDecisions: async (): Promise<OvertimeDecision[]> => {
     const q = query(collection(db, OVERTIME_DECISIONS_COL), limit(200));
     const snap = await getDocs(q);
