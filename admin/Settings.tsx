@@ -31,6 +31,7 @@ const Settings: React.FC<SettingsProps> = ({
   onRefresh
 }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('TIME');
+  const [isBatchEditUnlocked, setIsBatchEditUnlocked] = useState(false);
   const [newDeptName, setNewDeptName] = useState('');
   const [editingDeptId, setEditingDeptId] = useState<string | null>(null);
   const [editingDeptName, setEditingDeptName] = useState('');
@@ -129,8 +130,8 @@ const Settings: React.FC<SettingsProps> = ({
           let randomMinutes = 0;
           
           if (type === 'IN') {
-              // 6:30 (390) to 8:40 (520)
-              randomMinutes = 390 + Math.floor(Math.random() * 131);
+              // 6:30 (390) to 8:30 (510)
+              randomMinutes = 390 + Math.floor(Math.random() * 121);
           } else {
               // 17:30 (1050) to 19:00 (1140) - UPDATED RANGE
               randomMinutes = 1050 + Math.floor(Math.random() * 91);
@@ -297,7 +298,19 @@ const Settings: React.FC<SettingsProps> = ({
 
   const TabButton = ({ id, icon: Icon, label }: { id: SettingsTab; icon: any; label: string }) => (
     <button
-      onClick={() => setActiveTab(id)}
+      onClick={() => {
+        if (id === 'BATCH_EDIT' && !isBatchEditUnlocked) {
+          const pin = prompt("Enter Batch Edit PIN:");
+          if (pin === '1677') {
+            setIsBatchEditUnlocked(true);
+            setActiveTab(id);
+          } else if (pin !== null) {
+            alert("Incorrect PIN");
+          }
+        } else {
+          setActiveTab(id);
+        }
+      }}
       className={`w-full flex items-center gap-4 px-6 py-5 rounded-2xl text-left transition-all duration-300 group ${
         activeTab === id 
           ? 'bg-black text-white shadow-xl' 
@@ -413,7 +426,7 @@ const Settings: React.FC<SettingsProps> = ({
                                 : batchConfirm === 'LOGOUT' 
                                 ? "This will forcefully CLOCK OUT every employee who is currently present."
                                 : batchConfirm === 'RANDOM_IN'
-                                ? "This will randomize ALL Login times for the selected date to 06:30-08:40."
+                                ? "This will randomize ALL Login times for the selected date to 06:30-08:30."
                                 : batchConfirm === 'RANDOM_OUT'
                                 ? "This will randomize ALL Logout times for the selected date to 17:05-18:46."
                                 : batchConfirm === 'DELETE_DATE'
@@ -592,7 +605,7 @@ const Settings: React.FC<SettingsProps> = ({
                             <div>
                                 <h4 className="text-sm font-black uppercase text-emerald-900">Randomize Login Times</h4>
                                 <p className="text-[10px] font-bold text-emerald-600 mt-2">
-                                    Updates all <b>LOGIN</b> logs on this date to a random time between <b>06:30</b> and <b>08:40</b>.
+                                    Updates all <b>LOGIN</b> logs on this date to a random time between <b>06:30</b> and <b>08:30</b>.
                                 </p>
                             </div>
                             <button 

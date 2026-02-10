@@ -27,7 +27,7 @@ const CORS_HEADERS = {
 };
 
 // This offset is used only for logical comparison in the worker (e.g. checking against shift end)
-const DISPLAY_OFFSET = 7200000;
+const DISPLAY_OFFSET = 0;
 
 // Fallback Project ID from frontend config
 const DEFAULT_PROJECT_ID = "brilliant-chemicals";
@@ -281,9 +281,8 @@ async function handleLogEntry(req: Request, env: Env) {
   const { pin, source = 'API' } = body;
   let token = await getToken(env);
 
-  // Store raw time in DB, but use adjusted time for overtime logic
   const nowRaw = Date.now();
-  const adjustedTime = new Date(nowRaw - DISPLAY_OFFSET);
+  const adjustedTime = new Date(nowRaw);
 
   const empRes = await handlePinAuth(new Request('http://internal/api/auth/pin', { method: 'POST', body: JSON.stringify({ pin }) }), env);
   const empData: any = await empRes.json();
@@ -304,11 +303,22 @@ async function handleLogEntry(req: Request, env: Env) {
   let isOvertime = false;
   if (action === 'LOGOUT' && settings && settings.dayEnd) {
     const dayEndParts = settings.dayEnd.split(':').map(Number);
-    const dayEnd = new Date(adjustedTime);
-    dayEnd.setHours(dayEndParts[0], dayEndParts[1], 0, 0);
-    // Compare adjusted (displayed) time against shift end
-    if (adjustedTime > dayEnd) {
-      otHours = (adjustedTime.getTime() - dayEnd.getTime()) / 3600000;
+
+    // Use Harare time for comparison to ensure correct overtime calculation
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Africa/Harare',
+      hour12: false
+    });
+
+    const harareTimeStr = formatter.format(adjustedTime);
+    const [h, m] = harareTimeStr.split(':').map(Number);
+    const adjustedDecimal = h + (m / 60);
+    const dayEndDecimal = dayEndParts[0] + (dayEndParts[1] / 60);
+
+    if (adjustedDecimal > dayEndDecimal) {
+      otHours = adjustedDecimal - dayEndDecimal;
       if (otHours >= 0.5) isOvertime = true;
     }
   }
@@ -351,7 +361,6 @@ async function handleAutoLogout(env: Env) {
   try {
     const token = await getToken(env);
     const nowRaw = Date.now();
-    const nowAdjusted = new Date(nowRaw - DISPLAY_OFFSET);
     const settings = await getSystemSettings(env, token);
     if (!settings || !settings.dayEnd) return;
 
@@ -359,15 +368,30 @@ async function handleAutoLogout(env: Env) {
     for (const emp of employees) {
       const lastLog = await getLastLog(env, token, emp.id);
       if (lastLog && lastLog.action === 'LOGIN') {
-        const loginTimeAdjusted = new Date(lastLog.timestamp - DISPLAY_OFFSET);
+        // Find the dayEnd timestamp in the same day as the login, in Harare time
+        const loginDate = new Date(lastLog.timestamp);
         const [endH, endM] = settings.dayEnd.split(':').map(Number);
-        const targetLogoutAdjusted = new Date(loginTimeAdjusted);
-        targetLogoutAdjusted.setHours(endH, endM, 0, 0);
 
-        if (nowAdjusted.getTime() > targetLogoutAdjusted.getTime()) {
-           // We store a timestamp that will show up as dayEnd time when normalized in frontend.
-           // raw = target_displayed + offset
-           const targetRaw = targetLogoutAdjusted.getTime() + DISPLAY_OFFSET;
+        // This is tricky in UTC worker. Let's use a simpler approach:
+        // Assume dayEnd is on the same calendar day (in Harare) as the login.
+        const formatter = new Intl.DateTimeFormat('en-GB', {
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          timeZone: 'Africa/Harare'
+        });
+        const [d, m, y] = formatter.format(loginDate).split('/');
+
+        // Construct dayEnd timestamp for that date in Harare
+        const dayEndHarare = new Date(`${y}-${m}-${d}T${settings.dayEnd}:00`);
+        // Note: The above might still use UTC or local if not careful.
+        // Better way to construct a date in a specific timezone:
+        const dayEndTs = new Date(new Date(`${y}-${m}-${d}T${settings.dayEnd}:00`).toLocaleString("en-US", {timeZone: "Africa/Harare"})).getTime();
+        // Wait, that's also convoluted.
+
+        // Let's use the fact that Harare is UTC+2
+        const dayEndUTC = new Date(Date.UTC(Number(y), Number(m)-1, Number(d), endH - 2, endM)).getTime();
+
+        if (nowRaw > dayEndUTC + 3600000 * 2) { // Give a 2 hour buffer after dayEnd
+           const targetRaw = dayEndUTC;
            await createDocument(env, token, 'logs', {
               subjectId: emp.id,
               subjectName: emp.name,

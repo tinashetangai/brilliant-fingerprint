@@ -31,7 +31,7 @@ const OVERTIME_DECISIONS_COL = "overtime_decisions";
 
 // --- SYSTEM TIME OFFSET CONFIG ---
 // This offset is applied during display and calculations to show time 2 hours earlier than captured.
-const TIME_OFFSET = 7200000;
+const TIME_OFFSET = 0;
 
 // --- CLOUDFLARE WORKER URL ---
 const WORKER_URL = "https://knockout-attendance-worker.mordenfarm1677.workers.dev"; 
@@ -142,9 +142,9 @@ export const dataService = {
     startOfToday.setHours(0,0,0,0);
     const todayRaw = startOfToday.getTime();
 
-    // Target times (shifted 2 hours forward in raw time so that they show as 06:30/18:00 when displayed)
-    const targetLoginRaw = todayRaw + (8.5 * 3600000); // 08:30 raw -> 06:30 displayed
-    const targetLogoutRaw = todayRaw + (20 * 3600000);  // 20:00 raw -> 18:00 displayed
+    // Target times
+    const targetLoginRaw = todayRaw + (6.5 * 3600000); // 06:30
+    const targetLogoutRaw = todayRaw + (18 * 3600000);  // 18:00
 
     const q = query(
       collection(db, LOGS_COL),
@@ -446,9 +446,8 @@ export const dataService = {
         let ts = Date.now();
         if (randomize) {
           const baseDate = new Date();
-          // Adjust random range to match desired display range (17:30 - 19:00)
-          // We add 2 hours to the range in raw time so that display normalization results in target range.
-          const randomMinutes = 1170 + Math.floor(Math.random() * 91); // 1170 mins = 19:30 raw -> 17:30 displayed
+          // Random range (17:30 - 19:00)
+          const randomMinutes = 1050 + Math.floor(Math.random() * 91); // 1050 mins = 17:30
           baseDate.setHours(0, randomMinutes, Math.floor(Math.random() * 60), 0);
           ts = baseDate.getTime();
         }
