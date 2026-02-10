@@ -31,7 +31,7 @@ const OVERTIME_DECISIONS_COL = "overtime_decisions";
 
 // --- SYSTEM TIME OFFSET CONFIG ---
 // This offset is applied during display and calculations to show time 2 hours earlier than captured.
-const TIME_OFFSET = 7200000;
+const TIME_OFFSET = 0;
 
 // --- CLOUDFLARE WORKER URL ---
 const WORKER_URL = "https://knockout-attendance-worker.mordenfarm1677.workers.dev"; 
@@ -142,9 +142,9 @@ export const dataService = {
     startOfToday.setHours(0,0,0,0);
     const todayRaw = startOfToday.getTime();
 
-    // Target times (shifted 2 hours forward in raw time so that they show as 06:30/18:00 when displayed)
-    const targetLoginRaw = todayRaw + (8.5 * 3600000); // 08:30 raw -> 06:30 displayed
-    const targetLogoutRaw = todayRaw + (20 * 3600000);  // 20:00 raw -> 18:00 displayed
+    // Target times
+    const targetLoginRaw = todayRaw + (6.5 * 3600000); // 06:30
+    const targetLogoutRaw = todayRaw + (18 * 3600000);  // 18:00
 
     const q = query(
       collection(db, LOGS_COL),
@@ -446,9 +446,8 @@ export const dataService = {
         let ts = Date.now();
         if (randomize) {
           const baseDate = new Date();
-          // Adjust random range to match desired display range (17:30 - 19:00)
-          // We add 2 hours to the range in raw time so that display normalization results in target range.
-          const randomMinutes = 1170 + Math.floor(Math.random() * 91); // 1170 mins = 19:30 raw -> 17:30 displayed
+          // Random range (17:30 - 19:00)
+          const randomMinutes = 1050 + Math.floor(Math.random() * 91); // 1050 mins = 17:30
           baseDate.setHours(0, randomMinutes, Math.floor(Math.random() * 60), 0);
           ts = baseDate.getTime();
         }
@@ -686,6 +685,82 @@ export const dataService = {
     };
     await Promise.all([deleteCollection(LOGS_COL), deleteCollection(VISITOR_LOGS_COL), deleteCollection(INFORMAL_LOGS_COL), deleteCollection(OVERTIME_DECISIONS_COL)]);
   },
+
+  fillMissingHistory: async (onProgress?: (msg: string) => void): Promise<{ count: number }> => {
+    const employees = await dataService.getEmployees();
+    const firstLogQuery = query(collection(db, LOGS_COL), orderBy("timestamp", "asc"), limit(1));
+    const firstLogSnap = await getDocs(firstLogQuery);
+    if (firstLogSnap.empty) return { count: 0 };
+
+    const firstLogTs = firstLogSnap.docs[0].data().timestamp;
+    const startDate = new Date(firstLogTs);
+    startDate.setHours(0, 0, 0, 0);
+
+    const endDate = new Date();
+    endDate.setHours(0, 0, 0, 0);
+
+    let addedTotal = 0;
+    const logsToAdd: Omit<AttendanceLog, 'id'>[] = [];
+
+    for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toLocaleDateString('en-GB', { timeZone: 'Africa/Harare' });
+        if (onProgress) onProgress(`Scanning ${dateStr}...`);
+
+        const dayLogs = await dataService.getLogsByDate(dateStr);
+        const [day, month, year] = dateStr.split('/').map(Number);
+
+        for (const emp of employees) {
+            const empDayLogs = dayLogs.filter(l => String(l.subjectId).trim() === String(emp.id).trim());
+            const hasLogin = empDayLogs.some(l => l.action === AttendanceAction.LOGIN);
+            const hasLogout = empDayLogs.some(l => l.action === AttendanceAction.LOGOUT);
+
+            if (!hasLogin) {
+                const loginTs = new Date(Date.UTC(year, month - 1, day, 5, 0, 0)).getTime() + Math.floor(Math.random() * 3600000);
+                logsToAdd.push({
+                    subjectId: emp.id,
+                    subjectName: emp.name,
+                    timestamp: loginTs,
+                    action: AttendanceAction.LOGIN,
+                    status: LogStatus.SUCCESS,
+                    type: 'EMPLOYEE',
+                    confidence: 1.0,
+                    source: 'AUTO_FILL_HISTORY',
+                    date: dateStr
+                });
+            }
+
+            if (!hasLogout) {
+                const logoutTs = new Date(Date.UTC(year, month - 1, day, 14, 0, 0)).getTime() + Math.floor(Math.random() * 7200000);
+                logsToAdd.push({
+                    subjectId: emp.id,
+                    subjectName: emp.name,
+                    timestamp: logoutTs,
+                    action: AttendanceAction.LOGOUT,
+                    status: LogStatus.SUCCESS,
+                    type: 'EMPLOYEE',
+                    confidence: 1.0,
+                    source: 'AUTO_FILL_HISTORY',
+                    date: dateStr
+                });
+            }
+
+            if (logsToAdd.length >= 400) {
+              if (onProgress) onProgress(`Syncing ${logsToAdd.length} records...`);
+              const res = await dataService.batchAddLogs(logsToAdd);
+              addedTotal += res.count;
+              logsToAdd.length = 0;
+            }
+        }
+    }
+
+    if (logsToAdd.length > 0) {
+        const res = await dataService.batchAddLogs(logsToAdd);
+        addedTotal += res.count;
+    }
+
+    return { count: addedTotal };
+  },
+
   getOvertimeDecisions: async (): Promise<OvertimeDecision[]> => {
     const q = query(collection(db, OVERTIME_DECISIONS_COL), limit(200));
     const snap = await getDocs(q);

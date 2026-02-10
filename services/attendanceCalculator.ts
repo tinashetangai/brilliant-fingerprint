@@ -8,7 +8,7 @@ import { dataService } from './dataService';
  * Database is source of truth.
  */
 
-const DISPLAY_OFFSET = 7200000;
+const DISPLAY_OFFSET = 0;
 
 // Helper to convert "HH:MM" to decimal hours (e.g. "08:30" -> 8.5)
 const timeStringToDecimal = (timeStr: string): number => {

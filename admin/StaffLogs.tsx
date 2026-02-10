@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { Search, ArrowRight, Download, CheckCircle2, Trash2, LogIn, LogOut, Clock, Calendar, Cpu, AlertTriangle, Edit3, UserCheck, X, CheckSquare, Square, Loader2 } from 'lucide-react';
+import { Search, ArrowRight, Download, CheckCircle2, Trash2, LogIn, LogOut, Clock, Calendar, Cpu, AlertTriangle, Edit3, UserCheck, X, Square, Loader2 } from 'lucide-react';
 import { AttendanceLog, AttendanceSession, Employee, AttendanceAction, LogStatus } from '../types';
 import { dataService } from '../services/dataService';
 
@@ -16,9 +16,9 @@ interface StaffLogsProps {
   highlightedId: string | null;
   handleSuggestionClick: (name: string) => void;
   onRefresh?: () => void;
+  selectedDate: string;
+  onDateChange: (date: string) => void;
 }
-
-type DateRange = 'TODAY' | 'YESTERDAY' | 'THIS_WEEK' | 'THIS_MONTH' | 'ALL';
 type LogStatusFilter = 'ALL' | 'ON_SITE' | 'LOGGED_OUT';
 
 const StaffLogs: React.FC<StaffLogsProps> = ({ 
@@ -29,10 +29,11 @@ const StaffLogs: React.FC<StaffLogsProps> = ({
   onReportOpen,
   onWipeLogs,
   handleSuggestionClick,
-  onRefresh
+  onRefresh,
+  selectedDate,
+  onDateChange
 }) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [dateRange, setDateRange] = useState<DateRange>('ALL');
   const [statusFilter, setStatusFilter] = useState<LogStatusFilter>('ALL');
   
   // Batch Selection State
@@ -67,31 +68,16 @@ const StaffLogs: React.FC<StaffLogsProps> = ({
   }, [logs, employees]);
 
   const filteredSessions = useMemo(() => {
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const startOfYesterday = startOfToday - 86400000;
-    const startOfWeek = startOfToday - (now.getDay() * 86400000);
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-
     return sessions.filter(s => {
       const matchSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase());
       
-      let matchDate = true;
-      const [d, m, y] = s.date.split('/').map(Number);
-      const sessTime = new Date(y, m - 1, d).getTime();
-      
-      if (dateRange === 'TODAY') matchDate = sessTime >= startOfToday;
-      else if (dateRange === 'YESTERDAY') matchDate = sessTime >= startOfYesterday && sessTime < startOfToday;
-      else if (dateRange === 'THIS_WEEK') matchDate = sessTime >= startOfWeek;
-      else if (dateRange === 'THIS_MONTH') matchDate = sessTime >= startOfMonth;
-
       let matchStatus = true;
       if (statusFilter === 'ON_SITE') matchStatus = s.timeOut === 'ONSITE';
       if (statusFilter === 'LOGGED_OUT') matchStatus = s.timeOut !== 'ONSITE';
 
-      return matchSearch && matchDate && matchStatus;
+      return matchSearch && matchStatus;
     });
-  }, [sessions, searchQuery, dateRange, statusFilter]);
+  }, [sessions, searchQuery, statusFilter]);
 
   // --- SELECTION LOGIC ---
   const toggleSelectAll = () => {
@@ -328,16 +314,32 @@ const StaffLogs: React.FC<StaffLogsProps> = ({
             />
           </div>
 
-          <div className="flex bg-slate-100 p-1 rounded-none overflow-x-auto no-scrollbar border border-slate-100">
-            {['ALL', 'TODAY', 'YESTERDAY', 'WEEK', 'MONTH'].map(range => (
-              <button 
-                key={range}
-                onClick={() => setDateRange(range === 'WEEK' ? 'THIS_WEEK' : range === 'MONTH' ? 'THIS_MONTH' : range as DateRange)}
-                className={`px-4 py-2 rounded-none text-[9px] font-black uppercase tracking-tight transition-all flex-shrink-0 ${dateRange === (range === 'WEEK' ? 'THIS_WEEK' : range === 'MONTH' ? 'THIS_MONTH' : range) ? 'bg-black text-white' : 'text-slate-400 hover:text-black'}`}
-              >
-                {range}
-              </button>
-            ))}
+          <div className="flex items-center gap-4 bg-slate-50 px-4 py-2 border border-slate-100 rounded-lg">
+            <div className="flex items-center gap-2">
+              <Calendar size={16} className="text-slate-900" />
+              <input
+                type="date"
+                value={selectedDate.split('/').reverse().join('-')}
+                onChange={(e) => {
+                  if (!e.target.value) return;
+                  const [y, m, d] = e.target.value.split('-');
+                  onDateChange(`${d}/${m}/${y}`);
+                }}
+                className="bg-transparent text-[11px] font-black uppercase outline-none cursor-pointer"
+              />
+            </div>
+            {selectedDate === new Date().toLocaleDateString('en-GB', { timeZone: 'Africa/Harare' }) && (
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 border border-emerald-100 rounded-md">
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                <span className="text-[8px] font-black text-emerald-600 uppercase tracking-tighter">Current Day</span>
+              </div>
+            )}
+            <button
+              onClick={() => onDateChange(new Date().toLocaleDateString('en-GB', { timeZone: 'Africa/Harare' }))}
+              className="ml-auto px-3 py-1.5 bg-white border border-slate-200 text-[8px] font-black uppercase text-slate-500 hover:text-black hover:border-black transition-all rounded-md"
+            >
+              Today
+            </button>
           </div>
 
           <select 
@@ -387,7 +389,7 @@ const StaffLogs: React.FC<StaffLogsProps> = ({
             <tr>
               <th className="w-10 px-4 py-4 text-center">
                  <button onClick={toggleSelectAll} className="text-slate-400 hover:text-black transition-colors">
-                    {selectedLogIds.size > 0 && selectedLogIds.size === getAllVisibleLogIds().length ? <CheckSquare size={16} /> : <Square size={16} />}
+                    {selectedLogIds.size > 0 && selectedLogIds.size === getAllVisibleLogIds().length ? <CheckCircle2 size={16} /> : <Square size={16} />}
                  </button>
               </th>
               <th className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest">Date</th>
@@ -404,7 +406,7 @@ const StaffLogs: React.FC<StaffLogsProps> = ({
                 <tr key={idx} className={`hover:bg-slate-50 transition-colors group ${isSelected ? 'bg-blue-50/50' : ''}`}>
                   <td className="px-4 py-4 text-center">
                      <button onClick={() => toggleSessionSelection(sess)} className={`transition-colors ${isSelected ? 'text-blue-600' : 'text-slate-300 hover:text-slate-500'}`}>
-                        {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+                        {isSelected ? <CheckCircle2 size={16} /> : <Square size={16} />}
                      </button>
                   </td>
                   <td className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase">{sess.date}</td>

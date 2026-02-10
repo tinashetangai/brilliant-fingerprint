@@ -79,6 +79,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
   // Purge State
   const [showPurgeModal, setShowPurgeModal] = useState(false);
   const [isPurging, setIsPurging] = useState(false);
+  const [selectedLogsDate, setSelectedLogsDate] = useState<string>(new Date().toLocaleDateString('en-GB', { timeZone: 'Africa/Harare' }));
 
   const [adminNotification, setAdminNotification] = useState<{id: number, msg: string, sub: string, type: 'success' | 'error'} | null>(null);
   
@@ -121,9 +122,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
 
   // Lazy Load Heavy Data
   useEffect(() => {
-    // Load full history for Logs tab AND Employees tab (for accurate aggregated stats)
-    if (isAuthenticated && (activeTab === 'STAFF_LOGS' || activeTab === 'EMPLOYEES') && !hasFullHistory) {
+    // Load full history for Employees tab (for accurate aggregated stats)
+    if (isAuthenticated && activeTab === 'EMPLOYEES' && !hasFullHistory) {
       loadFullHistory();
+    }
+    // For STAFF_LOGS, we load by date
+    if (isAuthenticated && activeTab === 'STAFF_LOGS') {
+        handleDateChange(selectedLogsDate);
     }
   }, [isAuthenticated, activeTab]);
 
@@ -193,6 +198,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
       setHasFullHistory(true);
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  const handleDateChange = async (dateStr: string) => {
+    setSelectedLogsDate(dateStr);
+    setIsRefreshing(true);
+    try {
+        const dayLogs = await dataService.getLogsByDate(dateStr);
+        setLogs(dayLogs);
+        setHasFullHistory(false);
+    } catch (e) {
+        setAdminNotification({ id: Date.now(), msg: "Error", sub: "Failed to load logs for date", type: 'error' });
+    } finally {
+        setIsRefreshing(false);
     }
   };
 
@@ -581,7 +600,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
                 )}
 
                 {activeTab === 'OUTSIDE_WORK' && <OutsideWork employees={employees} departments={departments} onRefresh={() => {}} />}
-                {activeTab === 'STAFF_LOGS' && <StaffLogs logs={logs} employees={employees} searchQuery={searchQuery} setSearchQuery={setSearchQuery} activeFilter={activeFilter} setActiveFilter={setActiveFilter} onReportOpen={() => setShowReportConfig(true)} onWipeLogs={() => setShowPurgeModal(true)} highlightedId={highlightedId} handleSuggestionClick={handleSuggestionClick} onRefresh={loadFullHistory} />}
+                {activeTab === 'STAFF_LOGS' && (
+                  <StaffLogs
+                    logs={logs}
+                    employees={employees}
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    activeFilter={activeFilter}
+                    setActiveFilter={setActiveFilter}
+                    onReportOpen={() => setShowReportConfig(true)}
+                    onWipeLogs={() => setShowPurgeModal(true)}
+                    highlightedId={highlightedId}
+                    handleSuggestionClick={handleSuggestionClick}
+                    onRefresh={() => handleDateChange(selectedLogsDate)}
+                    selectedDate={selectedLogsDate}
+                    onDateChange={handleDateChange}
+                  />
+                )}
                 {activeTab === 'GATE_LOG' && <GateLog logs={informalLogs} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onReportOpen={() => setShowReportConfig(true)} />}
                 {activeTab === 'VISITOR_LOGS' && <VisitorLogs logs={visitorLogs} employees={employees} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onReportOpen={() => setShowReportConfig(true)} highlightedId={highlightedId} handleSuggestionClick={handleSuggestionClick} onRefresh={() => {}} />}
                 {activeTab === 'FREQUENT_VISITORS' && <FrequentVisitors frequentVisitors={frequentVisitors} onAddFrequentVisitor={handleAddFrequentVisitor} onUpdateFrequentVisitor={handleUpdateFrequentVisitor} onDeleteFrequentVisitor={handleDeleteFrequentVisitor} />}

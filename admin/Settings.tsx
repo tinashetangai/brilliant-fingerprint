@@ -31,6 +31,7 @@ const Settings: React.FC<SettingsProps> = ({
   onRefresh
 }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('TIME');
+  const [isBatchEditUnlocked, setIsBatchEditUnlocked] = useState(false);
   const [newDeptName, setNewDeptName] = useState('');
   const [editingDeptId, setEditingDeptId] = useState<string | null>(null);
   const [editingDeptName, setEditingDeptName] = useState('');
@@ -42,7 +43,7 @@ const Settings: React.FC<SettingsProps> = ({
 
   // Batch Operation State
   const [batchLoading, setBatchLoading] = useState(false);
-  const [batchConfirm, setBatchConfirm] = useState<'LOGIN' | 'LOGOUT' | 'PURGE' | 'SEED' | 'RANDOM_IN' | 'RANDOM_OUT' | 'FORCE_OUT_RANDOM' | 'DELETE_DATE' | null>(null);
+  const [batchConfirm, setBatchConfirm] = useState<'LOGIN' | 'LOGOUT' | 'PURGE' | 'SEED' | 'RANDOM_IN' | 'RANDOM_OUT' | 'FORCE_OUT_RANDOM' | 'DELETE_DATE' | 'FILL_BLANKS' | null>(null);
   
   // Purge Log State
   const [purgeLogs, setPurgeLogs] = useState<string[]>([]);
@@ -86,6 +87,8 @@ const Settings: React.FC<SettingsProps> = ({
             await handleBatchRandomization(batchConfirm === 'RANDOM_IN' ? 'IN' : 'OUT');
         } else if (batchConfirm === 'DELETE_DATE') {
             await handleDeleteDateLogs();
+        } else if (batchConfirm === 'FILL_BLANKS') {
+            await handleFillBlanks();
         }
         onRefresh();
     } catch (e) {
@@ -94,6 +97,19 @@ const Settings: React.FC<SettingsProps> = ({
     } finally {
         setBatchLoading(false);
         setBatchConfirm(null);
+    }
+  };
+
+  const handleFillBlanks = async () => {
+    setPurgeLogs(["Starting gap-fill analysis..."]);
+    try {
+        const result = await dataService.fillMissingHistory((msg) => {
+            setPurgeLogs(prev => [...prev.slice(-15), `[${new Date().toLocaleTimeString()}] ${msg}`]);
+        });
+        alert(`Success! Generated ${result.count} missing records to fill system gaps.`);
+    } catch (e: any) {
+        console.error(e);
+        alert("Gap-fill failed.");
     }
   };
 
@@ -129,8 +145,8 @@ const Settings: React.FC<SettingsProps> = ({
           let randomMinutes = 0;
           
           if (type === 'IN') {
-              // 6:30 (390) to 8:40 (520)
-              randomMinutes = 390 + Math.floor(Math.random() * 131);
+              // 6:30 (390) to 8:30 (510)
+              randomMinutes = 390 + Math.floor(Math.random() * 121);
           } else {
               // 17:30 (1050) to 19:00 (1140) - UPDATED RANGE
               randomMinutes = 1050 + Math.floor(Math.random() * 91);
@@ -297,7 +313,19 @@ const Settings: React.FC<SettingsProps> = ({
 
   const TabButton = ({ id, icon: Icon, label }: { id: SettingsTab; icon: any; label: string }) => (
     <button
-      onClick={() => setActiveTab(id)}
+      onClick={() => {
+        if (id === 'BATCH_EDIT' && !isBatchEditUnlocked) {
+          const pin = prompt("Enter Batch Edit PIN:");
+          if (pin === '1677') {
+            setIsBatchEditUnlocked(true);
+            setActiveTab(id);
+          } else if (pin !== null) {
+            alert("Incorrect PIN");
+          }
+        } else {
+          setActiveTab(id);
+        }
+      }}
       className={`w-full flex items-center gap-4 px-6 py-5 rounded-2xl text-left transition-all duration-300 group ${
         activeTab === id 
           ? 'bg-black text-white shadow-xl' 
@@ -413,11 +441,13 @@ const Settings: React.FC<SettingsProps> = ({
                                 : batchConfirm === 'LOGOUT' 
                                 ? "This will forcefully CLOCK OUT every employee who is currently present."
                                 : batchConfirm === 'RANDOM_IN'
-                                ? "This will randomize ALL Login times for the selected date to 06:30-08:40."
+                                ? "This will randomize ALL Login times for the selected date to 06:30-08:30."
                                 : batchConfirm === 'RANDOM_OUT'
                                 ? "This will randomize ALL Logout times for the selected date to 17:05-18:46."
                                 : batchConfirm === 'DELETE_DATE'
                                 ? "WARNING: This will PERMANENTLY DELETE all logs for the selected date. This action cannot be undone."
+                                : batchConfirm === 'FILL_BLANKS'
+                                ? "This will scan all previous days and automatically create missing Login (07:00-08:00) and Logout (16:00-18:00) records for all employees."
                                 : "This will forcefully log out ALL active workers with random times between 17:30 and 19:00."}
                         </p>
                     </div>
@@ -592,7 +622,7 @@ const Settings: React.FC<SettingsProps> = ({
                             <div>
                                 <h4 className="text-sm font-black uppercase text-emerald-900">Randomize Login Times</h4>
                                 <p className="text-[10px] font-bold text-emerald-600 mt-2">
-                                    Updates all <b>LOGIN</b> logs on this date to a random time between <b>06:30</b> and <b>08:40</b>.
+                                    Updates all <b>LOGIN</b> logs on this date to a random time between <b>06:30</b> and <b>08:30</b>.
                                 </p>
                             </div>
                             <button 
@@ -646,6 +676,30 @@ const Settings: React.FC<SettingsProps> = ({
                             >
                                 Select Workers for Batch Entry
                             </button>
+                        </div>
+
+                        <div className="p-6 bg-blue-50 border border-blue-100 rounded-2xl flex flex-col items-start gap-4 md:col-span-2">
+                            <div className="flex items-center gap-3">
+                                <Database size={20} className="text-blue-600" />
+                                <h4 className="text-sm font-black uppercase text-blue-900">Fill History Gaps (One-Click)</h4>
+                            </div>
+                            <p className="text-[10px] font-bold text-blue-600 mt-2">
+                                Automatically scans all previous dates. For any employee missing a record, it generates random <b>Logins (07:00-08:00)</b> and <b>Logouts (16:00-18:00)</b>.
+                            </p>
+                            <button
+                                onClick={() => setBatchConfirm('FILL_BLANKS')}
+                                disabled={batchLoading}
+                                className="w-full py-4 bg-blue-600 text-white rounded-xl font-black uppercase text-xs tracking-[0.2em] shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                            >
+                                <Check size={16} /> Fill All Missing Blanks
+                            </button>
+                            {batchLoading && batchConfirm === 'FILL_BLANKS' && (
+                                <div className="w-full mt-4 p-4 bg-black text-blue-400 font-mono text-[9px] rounded-xl h-24 overflow-y-auto border border-blue-900 shadow-inner">
+                                    {purgeLogs.map((l, i) => (
+                                        <div key={i}>{l}</div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                </div>
