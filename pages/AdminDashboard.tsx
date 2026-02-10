@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Lock, RefreshCcw, ShieldAlert, X, Loader2, FileBarChart, Download, Filter } from 'lucide-react';
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { dataService } from '../services/dataService';
@@ -83,6 +83,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
 
   const [adminNotification, setAdminNotification] = useState<{id: number, msg: string, sub: string, type: 'success' | 'error'} | null>(null);
   
+  const selectedDateRef = useRef(selectedLogsDate);
+  useEffect(() => { selectedDateRef.current = selectedLogsDate; }, [selectedLogsDate]);
+
   // Initial Load: Settings & Live Data Listener
   useEffect(() => {
     loadSettingsOnly();
@@ -90,16 +93,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
     // Subscribe to REAL-TIME recent logs (Last 24h)
     // This makes the dashboard update instantly without manual refreshes
     const unsubscribeLogs = dataService.subscribeToRecentLogs((recentLogs) => {
+      const todayStr = new Date().toLocaleDateString('en-GB', { timeZone: 'Africa/Harare' });
+
+      // If user is viewing a historical date and DOES NOT have full history loaded,
+      // we ignore "today" updates to avoid overwriting the historical view.
+      if (selectedDateRef.current !== todayStr && !hasFullHistory) return;
+
       setLogs(currentLogs => {
         // If full history is NOT loaded, just use recent logs
         if (!hasFullHistory) return recentLogs; 
         
         // If full history IS loaded, we need to merge recent updates carefully.
-        // Recent logs usually overwrite the last 24 hours of data.
-        
         const recentIds = new Set(recentLogs.map(l => l.id));
-        // Filter out any logs in currentLogs that are being updated by recentLogs (avoid duplicates)
-        // Also we assume recentLogs contains all "today's" logs, so we can remove old "today's" logs from history if they exist
         const history = currentLogs.filter(l => !recentIds.has(l.id));
         
         // Merge and sort
@@ -108,12 +113,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
       });
     });
 
-    const interval = setInterval(() => setTick(t => t + 1), 60000); // Reduce tick to 1 min to save CPU
+    const interval = setInterval(() => setTick(t => t + 1), 60000);
     return () => {
       clearInterval(interval);
       unsubscribeLogs();
     };
-  }, [hasFullHistory]); // Re-subscribe if hasFullHistory changes to ensure correct merge logic closure
+  }, [hasFullHistory]);
 
   // Static Data Load (Employees, Depts)
   useEffect(() => {

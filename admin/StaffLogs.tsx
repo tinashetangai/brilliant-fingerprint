@@ -58,8 +58,8 @@ const StaffLogs: React.FC<StaffLogsProps> = ({
         const logoutLog = logs.find(l => 
             String(l.subjectId).trim() === sess.subjectId && 
             l.action === 'LOGOUT' && 
-            new Date(l.timestamp).toLocaleDateString('en-GB') === sess.date &&
-            l.source === 'AUTO_SYSTEM_CRON'
+            new Date(l.timestamp).toLocaleDateString('en-GB', { timeZone: 'Africa/Harare' }) === sess.date &&
+            (l.source === 'AUTO_SYSTEM_CRON' || l.source === 'AUTO_SYSTEM_LOGOUT' || l.source === 'AUTO_FILL_HISTORY')
         );
         return { ...sess, isAutoLogout: !!logoutLog };
     });

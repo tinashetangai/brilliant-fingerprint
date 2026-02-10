@@ -36,6 +36,10 @@ const TIME_OFFSET = 0;
 // --- CLOUDFLARE WORKER URL ---
 const WORKER_URL = "https://knockout-attendance-worker.mordenfarm1677.workers.dev"; 
 
+const formatHarareDate = (ts: number): string => {
+  return new Date(ts).toLocaleDateString('en-GB', { timeZone: 'Africa/Harare' });
+};
+
 const normalizeTs = (ts: any): number => {
   if (!ts) return 0;
   let raw = 0;
@@ -173,7 +177,7 @@ export const dataService = {
           confidence: 1.0,
           type: 'EMPLOYEE',
           source: 'AUTO_SALES_LOG',
-          date: new Date(targetLoginRaw).toLocaleDateString('en-GB')
+          date: formatHarareDate(targetLoginRaw)
         });
         updateCount++;
       }
@@ -189,7 +193,7 @@ export const dataService = {
           confidence: 1.0,
           type: 'EMPLOYEE',
           source: 'AUTO_SALES_LOG',
-          date: new Date(targetLogoutRaw).toLocaleDateString('en-GB')
+          date: formatHarareDate(targetLogoutRaw)
         });
         updateCount++;
       }
@@ -276,7 +280,7 @@ export const dataService = {
     const adjustedLog = {
       ...log,
       timestamp: rawTs,
-      date: new Date(rawTs).toLocaleDateString('en-GB')
+      date: formatHarareDate(rawTs)
     };
     const coll = log.type === 'VISITOR' ? VISITOR_LOGS_COL : LOGS_COL;
     await addDoc(collection(db, coll), adjustedLog);
@@ -378,7 +382,7 @@ export const dataService = {
 
   updateLogTimestamp: async (logId: string, newTimestamp: number): Promise<void> => {
     const docRef = doc(db, LOGS_COL, logId);
-    const dateStr = new Date(newTimestamp).toLocaleDateString('en-GB');
+    const dateStr = formatHarareDate(newTimestamp);
     await updateDoc(docRef, { 
       timestamp: newTimestamp,
       date: dateStr 
@@ -394,7 +398,7 @@ export const dataService = {
         const batch = writeBatch(db);
         chunk.forEach(update => {
             const docRef = doc(db, LOGS_COL, update.id);
-            const dateStr = new Date(update.timestamp).toLocaleDateString('en-GB');
+            const dateStr = formatHarareDate(update.timestamp);
             batch.update(docRef, { 
                 timestamp: update.timestamp,
                 date: dateStr 
@@ -427,7 +431,7 @@ export const dataService = {
             confidence: 1.0,
             type: 'EMPLOYEE',
             source: 'ADMIN_BATCH_LOGIN',
-            date: new Date(nowRaw).toLocaleDateString('en-GB')
+            date: formatHarareDate(nowRaw)
         });
     });
     await batch.commit();
@@ -460,7 +464,7 @@ export const dataService = {
             confidence: 1.0,
             type: 'EMPLOYEE',
             source: 'ADMIN_BATCH_LOGOUT',
-            date: new Date(ts).toLocaleDateString('en-GB')
+            date: formatHarareDate(ts)
         });
     });
     await batch.commit();
@@ -518,7 +522,7 @@ export const dataService = {
     try {
       const lastMainAction = await dataService.getUserLastAction(employee.id);
       if (lastMainAction !== AttendanceAction.LOGIN) return { success: false, error: "ACCESS DENIED: Staff must Clock-In first." };
-      const todayStr = new Date().toLocaleDateString('en-GB');
+      const todayStr = formatHarareDate(Date.now());
       const q = query(
         collection(db, INFORMAL_LOGS_COL),
         where("employeeId", "==", String(employee.id).trim()),

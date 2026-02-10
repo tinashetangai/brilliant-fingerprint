@@ -32,6 +32,11 @@ const DISPLAY_OFFSET = 0;
 // Fallback Project ID from frontend config
 const DEFAULT_PROJECT_ID = "brilliant-chemicals";
 
+const HARARE_FORMATTER = new Intl.DateTimeFormat('en-GB', {
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  timeZone: 'Africa/Harare'
+});
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     if (request.method === 'OPTIONS') {
@@ -332,14 +337,14 @@ async function handleLogEntry(req: Request, env: Env) {
     type: 'EMPLOYEE',
     confidence: 1.0,
     source: source,
-    date: new Date(nowRaw).toLocaleDateString('en-GB')
+    date: HARARE_FORMATTER.format(new Date(nowRaw))
   };
 
   await createDocument(env, token, 'logs', logEntry);
   if (isOvertime) {
     await createDocument(env, token, 'overtime_decisions', {
       employeeId: employee.id,
-      date: adjustedTime.toLocaleDateString('en-GB'),
+      date: HARARE_FORMATTER.format(adjustedTime),
       hours: parseFloat(otHours.toFixed(2)),
       status: 'PENDING',
       timestamp: nowRaw
@@ -374,11 +379,7 @@ async function handleAutoLogout(env: Env) {
 
         // This is tricky in UTC worker. Let's use a simpler approach:
         // Assume dayEnd is on the same calendar day (in Harare) as the login.
-        const formatter = new Intl.DateTimeFormat('en-GB', {
-          year: 'numeric', month: '2-digit', day: '2-digit',
-          timeZone: 'Africa/Harare'
-        });
-        const [d, m, y] = formatter.format(loginDate).split('/');
+        const [d, m, y] = HARARE_FORMATTER.format(loginDate).split('/');
 
         // Harare is UTC+2
         let dayEndUTC = new Date(Date.UTC(Number(y), Number(m)-1, Number(d), endH - 2, endM)).getTime();
@@ -392,7 +393,7 @@ async function handleAutoLogout(env: Env) {
         // If this function is scheduled at 04:30 Harare, it will catch anyone who forgot to logout.
         if (nowRaw > dayEndUTC) {
            const targetRaw = dayEndUTC;
-           const harareDate = formatter.format(new Date(targetRaw));
+           const harareDate = HARARE_FORMATTER.format(new Date(targetRaw));
            await createDocument(env, token, 'logs', {
               subjectId: emp.id,
               subjectName: emp.name,

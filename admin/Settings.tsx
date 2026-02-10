@@ -241,7 +241,7 @@ const Settings: React.FC<SettingsProps> = ({
                 confidence: 1.0,
                 type: 'EMPLOYEE',
                 source: 'ADMIN_SEEDING',
-                date: logDate.toLocaleDateString('en-GB')
+                date: logDate.toLocaleDateString('en-GB', { timeZone: 'Africa/Harare' })
             });
         });
 
