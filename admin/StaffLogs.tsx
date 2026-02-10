@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { Search, ArrowRight, Download, CheckCircle2, Trash2, LogIn, LogOut, Clock, Calendar, Cpu, AlertTriangle, Edit3, UserCheck, X, CheckSquare, Square, Loader2 } from 'lucide-react';
+import { Search, ArrowRight, Download, CheckCircle2, Trash2, LogIn, LogOut, Clock, Calendar, Cpu, AlertTriangle, Edit3, UserCheck, X, Square, Loader2 } from 'lucide-react';
 import { AttendanceLog, AttendanceSession, Employee, AttendanceAction, LogStatus } from '../types';
 import { dataService } from '../services/dataService';
 
@@ -389,7 +389,7 @@ const StaffLogs: React.FC<StaffLogsProps> = ({
             <tr>
               <th className="w-10 px-4 py-4 text-center">
                  <button onClick={toggleSelectAll} className="text-slate-400 hover:text-black transition-colors">
-                    {selectedLogIds.size > 0 && selectedLogIds.size === getAllVisibleLogIds().length ? <CheckSquare size={16} /> : <Square size={16} />}
+                    {selectedLogIds.size > 0 && selectedLogIds.size === getAllVisibleLogIds().length ? <CheckCircle2 size={16} /> : <Square size={16} />}
                  </button>
               </th>
               <th className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest">Date</th>
@@ -406,7 +406,7 @@ const StaffLogs: React.FC<StaffLogsProps> = ({
                 <tr key={idx} className={`hover:bg-slate-50 transition-colors group ${isSelected ? 'bg-blue-50/50' : ''}`}>
                   <td className="px-4 py-4 text-center">
                      <button onClick={() => toggleSessionSelection(sess)} className={`transition-colors ${isSelected ? 'text-blue-600' : 'text-slate-300 hover:text-slate-500'}`}>
-                        {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+                        {isSelected ? <CheckCircle2 size={16} /> : <Square size={16} />}
                      </button>
                   </td>
                   <td className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase">{sess.date}</td>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Save, Settings as SettingsIcon, Building2, Plus, Trash2, Edit2, Check, X, Clock, ShieldCheck, Briefcase, Lock, Loader, ChevronRight, Download, Users, AlertTriangle, Database, Calendar, Wand2, CheckSquare } from 'lucide-react';
+import { Save, Settings as SettingsIcon, Building2, Plus, Trash2, Edit2, Check, X, Clock, ShieldCheck, Briefcase, Lock, Loader, ChevronRight, Download, Users, AlertTriangle, Database, Calendar, Wand2 } from 'lucide-react';
 import { SystemSettings, Department, Employee, AttendanceAction, LogStatus, AttendanceLog } from '../types';
 import * as XLSX from 'xlsx';
 import { dataService } from '../services/dataService';
@@ -691,7 +691,7 @@ const Settings: React.FC<SettingsProps> = ({
                                 disabled={batchLoading}
                                 className="w-full py-4 bg-blue-600 text-white rounded-xl font-black uppercase text-xs tracking-[0.2em] shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
                             >
-                                <CheckSquare size={16} /> Fill All Missing Blanks
+                                <Check size={16} /> Fill All Missing Blanks
                             </button>
                             {batchLoading && batchConfirm === 'FILL_BLANKS' && (
                                 <div className="w-full mt-4 p-4 bg-black text-blue-400 font-mono text-[9px] rounded-xl h-24 overflow-y-auto border border-blue-900 shadow-inner">
