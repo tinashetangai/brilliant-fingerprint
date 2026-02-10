@@ -380,18 +380,18 @@ async function handleAutoLogout(env: Env) {
         });
         const [d, m, y] = formatter.format(loginDate).split('/');
 
-        // Construct dayEnd timestamp for that date in Harare
-        const dayEndHarare = new Date(`${y}-${m}-${d}T${settings.dayEnd}:00`);
-        // Note: The above might still use UTC or local if not careful.
-        // Better way to construct a date in a specific timezone:
-        const dayEndTs = new Date(new Date(`${y}-${m}-${d}T${settings.dayEnd}:00`).toLocaleString("en-US", {timeZone: "Africa/Harare"})).getTime();
-        // Wait, that's also convoluted.
+        // Harare is UTC+2
+        let dayEndUTC = new Date(Date.UTC(Number(y), Number(m)-1, Number(d), endH - 2, endM)).getTime();
 
-        // Let's use the fact that Harare is UTC+2
-        const dayEndUTC = new Date(Date.UTC(Number(y), Number(m)-1, Number(d), endH - 2, endM)).getTime();
+        // Handle night shift: if login was after dayEnd on that calendar day,
+        // then the relevant dayEnd is actually the next day.
+        if (lastLog.timestamp > dayEndUTC) {
+          dayEndUTC += 24 * 3600 * 1000;
+        }
 
         if (nowRaw > dayEndUTC + 3600000 * 2) { // Give a 2 hour buffer after dayEnd
            const targetRaw = dayEndUTC;
+           const harareDate = formatter.format(new Date(targetRaw));
            await createDocument(env, token, 'logs', {
               subjectId: emp.id,
               subjectName: emp.name,
@@ -400,8 +400,8 @@ async function handleAutoLogout(env: Env) {
               status: 'SUCCESS',
               type: 'EMPLOYEE',
               confidence: 1.0,
-              source: 'AUTO_SYSTEM_CRON', 
-              date: new Date(targetRaw).toLocaleDateString('en-GB')
+              source: 'AUTO_SYSTEM_LOGOUT',
+              date: harareDate
            });
            await updateRealtimeDb(env, token, {
               subjectId: emp.id,
