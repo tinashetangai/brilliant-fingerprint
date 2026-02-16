@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { Search, ArrowRight, Download, CheckCircle2, Trash2, LogIn, LogOut, Clock, Calendar, Cpu, AlertTriangle, Edit3, UserCheck, X, Square, Loader2 } from 'lucide-react';
+import { Search, ArrowRight, Download, CheckCircle2, Trash2, LogIn, LogOut, Clock, Calendar, Cpu, AlertTriangle, Edit3, UserCheck, X, Square, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AttendanceLog, AttendanceSession, Employee, AttendanceAction, LogStatus } from '../types';
 import { dataService, formatDate } from '../services/dataService';
 

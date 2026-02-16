@@ -251,22 +251,54 @@ export const dataService = {
   },
 
   batchAddLogs: async (logs: Omit<AttendanceLog, 'id'>[]): Promise<{ count: number }> => {
+    return dataService.batchAddLogsDirectly(logs);
+  },
+
+  batchAddLogsDirectly: async (logs: Omit<AttendanceLog, 'id'>[]): Promise<{ count: number }> => {
     if (logs.length === 0) return { count: 0 };
-    const chunks = [];
-    for (let i = 0; i < logs.length; i += 50) chunks.push(logs.slice(i, i + 50));
-    let count = 0;
-    for (const chunk of chunks) {
-        try {
-            const response = await fetch(`${WORKER_URL}/api/admin/seed`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ logs: chunk })
+
+    // Group logs by date
+    const logsByDate: Record<string, Omit<AttendanceLog, 'id'>[]> = {};
+    logs.forEach(l => {
+        const d = l.date || formatDate(l.timestamp);
+        if (!logsByDate[d]) logsByDate[d] = [];
+        logsByDate[d].push(l);
+    });
+
+    for (const [dateStr, dayLogs] of Object.entries(logsByDate)) {
+        const docRef = doc(db, DAILY_LOGS_COL, dateStr);
+        const snap = await getDoc(docRef);
+
+        const dateBase = new Date(dayLogs[0].timestamp);
+        dateBase.setUTCHours(0, 0, 0, 0);
+
+        if (!snap.exists()) {
+            await setDoc(docRef, {
+                date: dateStr,
+                dateTs: dateBase.getTime(),
+                users: {}
             });
-            const data = await response.json();
-            if (data.success) count += data.count;
-        } catch (e) { console.error("Batch seed failed", e); }
+        }
+
+        const updateData: any = {};
+        dayLogs.forEach(log => {
+            const timeStr = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Harare', hour12: false }).format(new Date(log.timestamp));
+            const fieldPrefix = `users.${log.subjectId}`;
+
+            updateData[`${fieldPrefix}.name`] = log.subjectName;
+            if (log.action === AttendanceAction.LOGIN) {
+                updateData[`${fieldPrefix}.login`] = timeStr;
+                updateData[`${fieldPrefix}.loginTs`] = log.timestamp;
+            } else {
+                updateData[`${fieldPrefix}.logout`] = timeStr;
+                updateData[`${fieldPrefix}.logoutTs`] = log.timestamp;
+            }
+        });
+
+        await updateDoc(docRef, updateData);
     }
-    return { count };
+
+    return { count: logs.length };
   },
 
   batchDeleteLogs: async (logIds: string[], onProgress?: (count: number, total: number) => void): Promise<{ count: number }> => {
