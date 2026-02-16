@@ -20,7 +20,7 @@ import { db, rtdb } from "./firebase";
 import { Employee, AttendanceLog, LogStatus, AttendanceAction, SystemSettings, Notice, AttendanceSession, Department, InformalLog, FrequentVisitor, OvertimeDecision } from "../types";
 
 const EMPLOYEES_COL = "employees";
-const DAILY_LOGS_COL = "daily_logs";
+const DAILY_LOGS_COL = "logs-by-day";
 const VISITOR_LOGS_COL = "visitor_logs";
 const INFORMAL_LOGS_COL = "informal_logs";
 const SETTINGS_DOC = "config/system";
@@ -119,10 +119,11 @@ export const dataService = {
 
   getHarareTime: async (): Promise<Date> => {
     try {
-      const response = await fetch('https://worldtimeapi.org/api/timezone/Africa/Harare');
+      const response = await fetch('https://www.timeapi.io/api/Time/current/zone?timeZone=Africa/Harare');
       if (!response.ok) throw new Error("API Unreachable");
       const data = await response.json();
-      return new Date(data.datetime);
+      // timeapi.io uses dateTime (with capital T)
+      return new Date(data.dateTime);
     } catch (e) {
       return new Date();
     }
