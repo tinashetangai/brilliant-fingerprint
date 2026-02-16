@@ -411,63 +411,89 @@ export const dataService = {
   },
 
   batchClockInAbsentEmployees: async (): Promise<{ count: number }> => {
-    const logs = await dataService.getLogs(1000);
     const employees = await dataService.getEmployees();
+    const todayStr = formatHarareDate(Date.now());
+
+    // Find who is already active today
+    const logsSnap = await getDocs(query(collection(db, LOGS_COL), where("date", "==", todayStr)));
+    const logs = logsSnap.docs.map(d => d.data() as AttendanceLog);
     const sessions = dataService.buildSessions(logs, employees);
-    const todayStr = new Date().toLocaleDateString('en-GB', { timeZone: 'Africa/Harare' });
-    const activeEmpIds = new Set(sessions.filter(s => s.timeOut === 'ONSITE' && s.date === todayStr).map(s => s.subjectId));
+    const activeEmpIds = new Set(sessions.filter(s => s.timeOut === 'ONSITE').map(s => s.subjectId));
+
     const absentEmployees = employees.filter(e => !activeEmpIds.has(e.id));
     if (absentEmployees.length === 0) return { count: 0 };
-    const batch = writeBatch(db);
+
     const nowRaw = Date.now();
-    absentEmployees.forEach(emp => {
-        const docRef = doc(collection(db, LOGS_COL));
-        batch.set(docRef, {
-            subjectId: emp.id,
-            subjectName: emp.name,
-            timestamp: nowRaw,
-            action: AttendanceAction.LOGIN,
-            status: LogStatus.SUCCESS,
-            confidence: 1.0,
-            type: 'EMPLOYEE',
-            source: 'ADMIN_BATCH_LOGIN',
-            date: formatHarareDate(nowRaw)
+    const chunks = [];
+    for (let i = 0; i < absentEmployees.length; i += 400) chunks.push(absentEmployees.slice(i, i + 400));
+
+    for (const chunk of chunks) {
+        const batch = writeBatch(db);
+        chunk.forEach(emp => {
+            const docRef = doc(collection(db, LOGS_COL));
+            batch.set(docRef, {
+                subjectId: emp.id,
+                subjectName: emp.name,
+                timestamp: nowRaw,
+                action: AttendanceAction.LOGIN,
+                status: LogStatus.SUCCESS,
+                confidence: 1.0,
+                type: 'EMPLOYEE',
+                source: 'ADMIN_BATCH_LOGIN',
+                date: todayStr
+            });
         });
-    });
-    await batch.commit();
+        await batch.commit();
+    }
     return { count: absentEmployees.length };
   },
 
   batchClockOutActiveEmployees: async (randomize: boolean = false): Promise<{ count: number }> => {
-    const logs = await dataService.getLogs(1000); 
     const employees = await dataService.getEmployees();
-    const sessions = dataService.buildSessions(logs, employees);
-    const activeSessions = sessions.filter(s => s.timeOut === 'ONSITE' && s.type === 'EMPLOYEE');
-    if (activeSessions.length === 0) return { count: 0 };
-    const batch = writeBatch(db);
-    activeSessions.forEach(session => {
-        const docRef = doc(collection(db, LOGS_COL));
-        let ts = Date.now();
-        if (randomize) {
-          const baseDate = new Date();
-          // Random range (17:30 - 19:00)
-          const randomMinutes = 1050 + Math.floor(Math.random() * 91); // 1050 mins = 17:30
-          baseDate.setHours(0, randomMinutes, Math.floor(Math.random() * 60), 0);
-          ts = baseDate.getTime();
+    const activeSessions: {subjectId: string, name: string}[] = [];
+
+    // Correctly identify who is ONSITE by checking last action
+    for (const emp of employees) {
+        const lastAction = await dataService.getUserLastAction(emp.id);
+        if (lastAction === AttendanceAction.LOGIN) {
+            activeSessions.push({ subjectId: emp.id, name: emp.name });
         }
-        batch.set(docRef, {
-            subjectId: session.subjectId,
-            subjectName: session.name,
-            timestamp: ts,
-            action: AttendanceAction.LOGOUT,
-            status: LogStatus.SUCCESS,
-            confidence: 1.0,
-            type: 'EMPLOYEE',
-            source: 'ADMIN_BATCH_LOGOUT',
-            date: formatHarareDate(ts)
+    }
+
+    if (activeSessions.length === 0) return { count: 0 };
+
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const d = now.getDate();
+
+    const chunks = [];
+    for (let i = 0; i < activeSessions.length; i += 400) chunks.push(activeSessions.slice(i, i + 400));
+
+    for (const chunk of chunks) {
+        const batch = writeBatch(db);
+        chunk.forEach(session => {
+            const docRef = doc(collection(db, LOGS_COL));
+            let ts = Date.now();
+            if (randomize) {
+              // 17:05-18:46 Harare is 15:05-16:46 UTC
+              const startTs = new Date(Date.UTC(y, m, d, 15, 5)).getTime();
+              ts = startTs + Math.floor(Math.random() * (101 * 60 * 1000));
+            }
+            batch.set(docRef, {
+                subjectId: session.subjectId,
+                subjectName: session.name,
+                timestamp: ts,
+                action: AttendanceAction.LOGOUT,
+                status: LogStatus.SUCCESS,
+                confidence: 1.0,
+                type: 'EMPLOYEE',
+                source: 'ADMIN_BATCH_LOGOUT',
+                date: formatHarareDate(ts)
+            });
         });
-    });
-    await batch.commit();
+        await batch.commit();
+    }
     return { count: activeSessions.length };
   },
 

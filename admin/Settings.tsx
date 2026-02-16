@@ -141,20 +141,17 @@ const Settings: React.FC<SettingsProps> = ({
       }
 
       const updates = targetLogs.map((log, index) => {
-          const baseDate = new Date(y, m - 1, d);
-          let randomMinutes = 0;
-          
+          let ts = 0;
           if (type === 'IN') {
-              // 6:30 (390) to 8:30 (510)
-              randomMinutes = 390 + Math.floor(Math.random() * 121);
+              // 6:30-08:30 Harare is 04:30-06:30 UTC
+              const startTs = new Date(Date.UTC(y, m - 1, d, 4, 30)).getTime();
+              ts = startTs + Math.floor(Math.random() * (121 * 60 * 1000));
           } else {
-              // 17:30 (1050) to 19:00 (1140) - UPDATED RANGE
-              randomMinutes = 1050 + Math.floor(Math.random() * 91);
+              // 17:05-18:46 Harare is 15:05-16:46 UTC
+              const startTs = new Date(Date.UTC(y, m - 1, d, 15, 5)).getTime();
+              ts = startTs + Math.floor(Math.random() * (101 * 60 * 1000));
           }
-
-          const seconds = Math.floor(Math.random() * 60);
-          baseDate.setHours(0, randomMinutes, seconds, 0);
-          return { id: log.id, timestamp: baseDate.getTime() };
+          return { id: log.id, timestamp: ts };
       });
 
       const res = await dataService.batchUpdateTimestamps(updates);
@@ -448,7 +445,7 @@ const Settings: React.FC<SettingsProps> = ({
                                 ? "WARNING: This will PERMANENTLY DELETE all logs for the selected date. This action cannot be undone."
                                 : batchConfirm === 'FILL_BLANKS'
                                 ? "This will scan all previous days and automatically create missing Login (07:00-08:00) and Logout (16:00-18:00) records for all employees."
-                                : "This will forcefully log out ALL active workers with random times between 17:30 and 19:00."}
+                                : "This will forcefully log out ALL active workers with random times between 17:05 and 18:46."}
                         </p>
                     </div>
                     <div className="flex gap-3 w-full mt-4">
