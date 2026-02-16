@@ -1,7 +1,7 @@
 
 import { collection, writeBatch, getDocs, doc } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { db, auth } from "../backend/firebase";
+import { db, auth } from "./firebase";
 import { Employee, SystemSettings } from "../types";
 
 const DEPARTMENTS_COL = "departments";

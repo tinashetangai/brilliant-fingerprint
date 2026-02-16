@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Lock, RefreshCcw, ShieldAlert, X, Loader2, FileBarChart, Download, Filter } from 'lucide-react';
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { dataService, formatDate } from '../services/dataService';
-import { auth } from '../backend/firebase';
+import { auth } from '../services/firebase';
 import { Employee, AttendanceLog, SystemSettings, Notice, Department, InformalLog, FrequentVisitor, OvertimeDecision, LogStatus, AttendanceAction } from '../types';
 import AdminSidebar, { AdminTab } from '../components/AdminSidebar';
 import MobileTopNav from '../components/MobileTopNav';

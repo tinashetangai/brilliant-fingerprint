@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Trash2, Edit3, X, Loader2, Fingerprint, Key, SortAsc, SortDesc, Cpu } from 'lucide-react';
 import { FrequentVisitor } from '../types';
-import { db } from '../backend/firebase';
+import { db } from '../services/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 
 interface FrequentVisitorsProps {

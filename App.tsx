@@ -5,7 +5,7 @@ import Home from './pages/Home';
 import AdminDashboard from './pages/AdminDashboard';
 import LoginLogoutPrompt from './components/LoginLogoutPrompt';
 import { dataService } from './services/dataService';
-import { auth } from './backend/firebase';
+import { auth } from './services/firebase';
 import { Employee, AttendanceAction, LogStatus } from './types';
 
 const App: React.FC = () => {
