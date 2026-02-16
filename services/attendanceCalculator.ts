@@ -175,9 +175,9 @@ export const attendanceCalculator = {
     });
 
     return dailyRecords.sort((a,b) => {
-      const [da, ma, ya] = a.date.split('/').map(Number);
-      const [db, mb, yb] = b.date.split('/').map(Number);
-      return new Date(yb, mb-1, db).getTime() - new Date(ya, ma-1, da).getTime();
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return dateB - dateA;
     });
   },
 

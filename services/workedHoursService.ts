@@ -1,6 +1,6 @@
 
 import { collection, writeBatch, query, where, getDocs, doc } from "firebase/firestore";
-import { db } from "../backend/firebase";
+import { db } from "./firebase";
 import { DailyWorkRecord, Employee, AttendanceLog, OvertimeDecision, SystemSettings } from "../types";
 import { attendanceCalculator } from "./attendanceCalculator";
 

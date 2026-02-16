@@ -175,8 +175,7 @@ const StaffLogs: React.FC<StaffLogsProps> = ({
     if (!editingSession) return;
     setIsSaving(true);
     try {
-        const [d, m, y] = editingSession.date.split('/').map(Number);
-        const baseDate = new Date(y, m - 1, d);
+        const baseDate = new Date(editingSession.date);
 
         if (editTimeIn && editingSession.loginLogId) {
             const [h, min] = editTimeIn.split(':').map(Number);
@@ -319,11 +318,12 @@ const StaffLogs: React.FC<StaffLogsProps> = ({
               <Calendar size={16} className="text-slate-900" />
               <input
                 type="date"
-                value={selectedDate.split('/').reverse().join('-')}
+                value={new Date(selectedDate).toISOString().split('T')[0]}
                 onChange={(e) => {
                   if (!e.target.value) return;
                   const [y, m, d] = e.target.value.split('-');
-                  onDateChange(`${d}/${m}/${y}`);
+                  const dateObj = new Date(Number(y), Number(m) - 1, Number(d));
+                  onDateChange(formatDate(dateObj));
                 }}
                 className="bg-transparent text-[11px] font-black uppercase outline-none cursor-pointer"
               />

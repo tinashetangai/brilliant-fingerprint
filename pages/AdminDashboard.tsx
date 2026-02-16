@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Lock, RefreshCcw, ShieldAlert, X, Loader2, FileBarChart, Download, Filter } from 'lucide-react';
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { dataService, formatDate } from '../services/dataService';
-import { auth } from '../backend/firebase';
+import { auth } from '../services/firebase';
 import { Employee, AttendanceLog, SystemSettings, Notice, Department, InformalLog, FrequentVisitor, OvertimeDecision, LogStatus, AttendanceAction } from '../types';
 import AdminSidebar, { AdminTab } from '../components/AdminSidebar';
 import MobileTopNav from '../components/MobileTopNav';
@@ -311,8 +311,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
     }
 
     const filteredRecords = fullRecords.filter(r => {
-      const [d, m, y] = r.date.split('/').map(Number);
-      return (m - 1) === reportMonth && y === reportYear;
+      const d = new Date(r.date);
+      return d.getMonth() === reportMonth && d.getFullYear() === reportYear;
     });
 
     const monthName = new Date(reportYear, reportMonth).toLocaleString('default', { month: 'long', year: 'numeric' });

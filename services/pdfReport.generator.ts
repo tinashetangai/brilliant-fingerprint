@@ -80,8 +80,8 @@ export const pdfReportGenerator = {
         const workedDates = new Set(empRecords.map(r => r.date));
         let absences = 0;
         for (let d = 1; d <= daysInMonth; d++) {
-          const dateStr = `${String(d).padStart(2, '0')}/${String(month + 1).padStart(2, '0')}/${year}`;
           const dateObj = new Date(year, month, d);
+          const dateStr = formatDate(dateObj);
           const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
           if (!isWeekend && !workedDates.has(dateStr)) absences++;
         }
@@ -173,8 +173,8 @@ export const pdfReportGenerator = {
 
     // 3. STATS SUMMARY ROW
     const empRecords = allRecords.filter(r => {
-      const [d, m, y] = r.date.split('/').map(Number);
-      return (m - 1) === month && y === year;
+      const d = new Date(r.date);
+      return d.getMonth() === month && d.getFullYear() === year;
     });
 
     const totalHours = empRecords.reduce((acc, r) => acc + r.totalContributedHours, 0);
@@ -202,9 +202,9 @@ export const pdfReportGenerator = {
     const tableData = [];
 
     for (let d = 1; d <= daysInMonth; d++) {
-      const dateStr = `${String(d).padStart(2, '0')}/${String(month + 1).padStart(2, '0')}/${year}`;
-      const record = empRecords.find(r => r.date === dateStr);
       const dateObj = new Date(year, month, d);
+      const dateStr = formatDate(dateObj);
+      const record = empRecords.find(r => r.date === dateStr);
       const dayName = dateObj.toLocaleString('default', { weekday: 'short' });
       const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
 
