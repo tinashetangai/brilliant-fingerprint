@@ -1,5 +1,6 @@
 
 import { Employee, DailyWorkRecord } from '../types';
+import { formatDate } from './dataService';
 
 export const csvReportGenerator = {
   generateMonthlyReport: (

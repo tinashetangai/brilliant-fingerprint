@@ -89,13 +89,33 @@ export const dataService = {
   parseDailyDocToLogs: (dateStr: string, data: any): AttendanceLog[] => {
     const logs: AttendanceLog[] = [];
     const users = data.users || {};
+
+    const parseTime = (dStr: string, tStr: string): number => {
+      try {
+        const parts = dStr.split(' ');
+        if (parts.length !== 3) return 0;
+        const day = parseInt(parts[0]);
+        const monthStr = parts[1];
+        const year = parseInt(parts[2]);
+        const months: Record<string, number> = {
+          Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+          Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11
+        };
+        const [h, m] = tStr.split(':').map(Number);
+        // CAT is UTC+2, so subtract 2 from hours for UTC timestamp
+        return Date.UTC(year, months[monthStr], day, h - 2, m, 0);
+      } catch (e) {
+        return 0;
+      }
+    };
+
     for (const [userId, userLog] of Object.entries(users) as any) {
       if (userLog.login) {
         logs.push({
           id: `${userId}_login_${dateStr}`,
           subjectId: userId,
           subjectName: userLog.name,
-          timestamp: userLog.loginTs || 0,
+          timestamp: userLog.loginTs || parseTime(dateStr, userLog.login),
           action: AttendanceAction.LOGIN,
           status: LogStatus.SUCCESS,
           type: 'EMPLOYEE',
@@ -107,7 +127,7 @@ export const dataService = {
           id: `${userId}_logout_${dateStr}`,
           subjectId: userId,
           subjectName: userLog.name,
-          timestamp: userLog.logoutTs || 0,
+          timestamp: userLog.logoutTs || parseTime(dateStr, userLog.logout),
           action: AttendanceAction.LOGOUT,
           status: LogStatus.SUCCESS,
           type: 'EMPLOYEE',

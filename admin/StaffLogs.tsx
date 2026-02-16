@@ -313,30 +313,70 @@ const StaffLogs: React.FC<StaffLogsProps> = ({
             />
           </div>
 
-          <div className="flex items-center gap-4 bg-slate-50 px-4 py-2 border border-slate-100 rounded-lg">
-            <div className="flex items-center gap-2">
-              <Calendar size={16} className="text-slate-900" />
+          <div className="flex items-center gap-2 bg-slate-900 p-1 rounded-xl shadow-inner border border-slate-800">
+            <button
+              onClick={() => {
+                const [d, mStr, y] = selectedDate.split(' ');
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const m = months.indexOf(mStr);
+                const date = new Date(Date.UTC(parseInt(y), m, parseInt(d)));
+                date.setUTCDate(date.getUTCDate() - 1);
+                onDateChange(formatDate(date));
+              }}
+              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+            >
+              <ChevronLeft size={18} />
+            </button>
+
+            <div className="relative flex items-center gap-3 px-4 py-2 bg-slate-800 rounded-lg group cursor-pointer border border-slate-700">
+              <Calendar size={14} className="text-emerald-400" />
+              <span className="text-[11px] font-black text-white uppercase tracking-wider">{selectedDate}</span>
               <input
                 type="date"
-                value={new Date(selectedDate).toISOString().split('T')[0]}
+                value={(() => {
+                  const parts = selectedDate.split(' ');
+                  if (parts.length !== 3) return '';
+                  const day = parts[0].padStart(2, '0');
+                  const monthsLookup: Record<string, string> = {
+                    Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
+                    Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12'
+                  };
+                  const month = monthsLookup[parts[1]];
+                  const year = parts[2];
+                  return `${year}-${month}-${day}`;
+                })()}
                 onChange={(e) => {
                   if (!e.target.value) return;
                   const [y, m, d] = e.target.value.split('-');
-                  const dateObj = new Date(Number(y), Number(m) - 1, Number(d));
-                  onDateChange(formatDate(dateObj));
+                  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                  const formatted = `${d.padStart(2, '0')} ${months[parseInt(m) - 1]} ${y}`;
+                  onDateChange(formatted);
                 }}
-                className="bg-transparent text-[11px] font-black uppercase outline-none cursor-pointer"
+                className="absolute inset-0 opacity-0 cursor-pointer"
               />
             </div>
-            {selectedDate === formatDate(new Date()) && (
-              <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 border border-emerald-100 rounded-md">
-                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                <span className="text-[8px] font-black text-emerald-600 uppercase tracking-tighter">Current Day</span>
-              </div>
-            )}
+
+            <button
+              onClick={() => {
+                const [d, mStr, y] = selectedDate.split(' ');
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const m = months.indexOf(mStr);
+                const date = new Date(Date.UTC(parseInt(y), m, parseInt(d)));
+                date.setUTCDate(date.getUTCDate() + 1);
+                onDateChange(formatDate(date));
+              }}
+              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+            >
+              <ChevronRight size={18} />
+            </button>
+
             <button
               onClick={() => onDateChange(formatDate(new Date()))}
-              className="ml-auto px-3 py-1.5 bg-white border border-slate-200 text-[8px] font-black uppercase text-slate-500 hover:text-black hover:border-black transition-all rounded-md"
+              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all border ${
+                selectedDate === formatDate(new Date())
+                  ? 'bg-emerald-500 text-white border-emerald-400 shadow-lg shadow-emerald-500/20'
+                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+              }`}
             >
               Today
             </button>
