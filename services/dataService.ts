@@ -19,6 +19,7 @@ import { ref, onValue } from "firebase/database";
 import { db, rtdb } from "./firebase";
 import { Employee, AttendanceLog, LogStatus, AttendanceAction, SystemSettings, Notice, AttendanceSession, Department, InformalLog, FrequentVisitor, OvertimeDecision } from "../types";
 import { SEED_EMPLOYEES } from './seedData';
+import { formatDate } from './dateUtils';
 
 const EMPLOYEES_COL = "employees";
 const DAILY_LOGS_COL = "day_by_day_logs";
@@ -35,15 +36,6 @@ const TIME_OFFSET = 0;
 
 // --- CLOUDFLARE WORKER URL ---
 const WORKER_URL = "https://knockout-attendance-worker.mordenfarm1677.workers.dev"; 
-
-export const formatDate = (date: Date | number) => {
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'Africa/Harare'
-  }).format(typeof date === 'number' ? new Date(date) : date).replace(/\./g, '');
-};
 
 const normalizeTs = (ts: any): number => {
   if (!ts) return 0;
@@ -393,6 +385,10 @@ export const dataService = {
     const snap = await getDoc(docRef);
     if (!snap.exists()) return [];
     return dataService.parseDailyDocToLogs(dateStr, snap.data());
+  },
+
+  getLogsForDate: async (dateStr: string): Promise<AttendanceLog[]> => {
+    return dataService.getLogsByDate(dateStr);
   },
 
   getLogsForEmployee: async (employeeId: string, limitCount: number = 50): Promise<AttendanceLog[]> => {

@@ -2,7 +2,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Employee, DailyWorkRecord, OvertimeStatus } from '../types';
-import { formatDate } from './dataService';
+import { formatDate } from './dateUtils';
 
 export const pdfReportGenerator = {
   /**

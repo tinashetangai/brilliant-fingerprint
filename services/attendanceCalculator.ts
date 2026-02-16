@@ -1,6 +1,7 @@
 
 import { AttendanceLog, AttendanceAction, SystemSettings, OvertimeDecision, OvertimeStatus, DailyWorkRecord, AttendanceSession } from '../types';
-import { dataService, formatDate } from './dataService';
+import { dataService } from './dataService';
+import { formatDate } from './dateUtils';
 
 /**
  * ATTENDANCE CALCULATOR SERVICE
