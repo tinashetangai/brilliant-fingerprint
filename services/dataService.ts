@@ -36,6 +36,15 @@ const TIME_OFFSET = 0;
 // --- CLOUDFLARE WORKER URL ---
 const WORKER_URL = "https://knockout-attendance-worker.mordenfarm1677.workers.dev"; 
 
+export const formatDate = (date: Date | number) => {
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'Africa/Harare'
+  }).format(typeof date === 'number' ? new Date(date) : date);
+};
+
 const normalizeTs = (ts: any): number => {
   if (!ts) return 0;
   let raw = 0;
@@ -173,7 +182,7 @@ export const dataService = {
           confidence: 1.0,
           type: 'EMPLOYEE',
           source: 'AUTO_SALES_LOG',
-          date: new Date(targetLoginRaw).toLocaleDateString('en-GB')
+          date: formatDate(targetLoginRaw)
         });
         updateCount++;
       }
@@ -189,7 +198,7 @@ export const dataService = {
           confidence: 1.0,
           type: 'EMPLOYEE',
           source: 'AUTO_SALES_LOG',
-          date: new Date(targetLogoutRaw).toLocaleDateString('en-GB')
+          date: formatDate(targetLogoutRaw)
         });
         updateCount++;
       }
@@ -209,7 +218,7 @@ export const dataService = {
 
     sortedLogs.forEach(log => {
       const constTS = normalizeTs(log.timestamp);
-      const dateKey = new Date(constTS).toLocaleDateString('en-GB', { timeZone: 'Africa/Harare' });
+      const dateKey = formatDate(constTS);
       const subjectId = String(log.subjectId).trim();
       if (!sessionsBySubject[subjectId]) sessionsBySubject[subjectId] = [];
       const userSessions = sessionsBySubject[subjectId];
@@ -276,7 +285,7 @@ export const dataService = {
     const adjustedLog = {
       ...log,
       timestamp: rawTs,
-      date: new Date(rawTs).toLocaleDateString('en-GB')
+      date: formatDate(rawTs)
     };
     const coll = log.type === 'VISITOR' ? VISITOR_LOGS_COL : LOGS_COL;
     await addDoc(collection(db, coll), adjustedLog);
@@ -378,7 +387,7 @@ export const dataService = {
 
   updateLogTimestamp: async (logId: string, newTimestamp: number): Promise<void> => {
     const docRef = doc(db, LOGS_COL, logId);
-    const dateStr = new Date(newTimestamp).toLocaleDateString('en-GB');
+    const dateStr = formatDate(newTimestamp);
     await updateDoc(docRef, { 
       timestamp: newTimestamp,
       date: dateStr 
@@ -394,7 +403,7 @@ export const dataService = {
         const batch = writeBatch(db);
         chunk.forEach(update => {
             const docRef = doc(db, LOGS_COL, update.id);
-            const dateStr = new Date(update.timestamp).toLocaleDateString('en-GB');
+            const dateStr = formatDate(update.timestamp);
             batch.update(docRef, { 
                 timestamp: update.timestamp,
                 date: dateStr 
@@ -407,16 +416,24 @@ export const dataService = {
   },
 
   batchClockInAbsentEmployees: async (): Promise<{ count: number }> => {
-    const logs = await dataService.getLogs(1000);
+    const todayStr = dataService.getTodayStr();
+    const logs = await dataService.getLogsByDate(todayStr);
     const employees = await dataService.getEmployees();
-    const sessions = dataService.buildSessions(logs, employees);
-    const todayStr = new Date().toLocaleDateString('en-GB', { timeZone: 'Africa/Harare' });
-    const activeEmpIds = new Set(sessions.filter(s => s.timeOut === 'ONSITE' && s.date === todayStr).map(s => s.subjectId));
-    const absentEmployees = employees.filter(e => !activeEmpIds.has(e.id));
+
+    // Find anyone who has ANY record for today
+    const seenToday = new Set(logs.map(l => String(l.subjectId).trim()));
+    const absentEmployees = employees.filter(e => !seenToday.has(String(e.id).trim()));
+
     if (absentEmployees.length === 0) return { count: 0 };
-    const batch = writeBatch(db);
+
     const nowRaw = Date.now();
-    absentEmployees.forEach(emp => {
+    let totalAdded = 0;
+
+    // Split into chunks of 400 to respect Firestore batch limits
+    for (let i = 0; i < absentEmployees.length; i += 400) {
+      const chunk = absentEmployees.slice(i, i + 400);
+      const batch = writeBatch(db);
+      chunk.forEach(emp => {
         const docRef = doc(collection(db, LOGS_COL));
         batch.set(docRef, {
             subjectId: emp.id,
@@ -427,23 +444,35 @@ export const dataService = {
             confidence: 1.0,
             type: 'EMPLOYEE',
             source: 'ADMIN_BATCH_LOGIN',
-            date: new Date(nowRaw).toLocaleDateString('en-GB')
+            date: todayStr
         });
-    });
-    await batch.commit();
-    return { count: absentEmployees.length };
+      });
+      await batch.commit();
+      totalAdded += chunk.length;
+    }
+
+    return { count: totalAdded };
   },
 
   batchClockOutActiveEmployees: async (randomize: boolean = false): Promise<{ count: number }> => {
-    const logs = await dataService.getLogs(1000); 
+    // Increased log limit to ensure we catch active sessions from past few days if necessary
+    const logs = await dataService.getLogs(2000);
     const employees = await dataService.getEmployees();
     const sessions = dataService.buildSessions(logs, employees);
+
     const activeSessions = sessions.filter(s => s.timeOut === 'ONSITE' && s.type === 'EMPLOYEE');
+
     if (activeSessions.length === 0) return { count: 0 };
-    const batch = writeBatch(db);
-    activeSessions.forEach(session => {
+
+    let totalAdded = 0;
+    const nowRaw = Date.now();
+
+    for (let i = 0; i < activeSessions.length; i += 400) {
+      const chunk = activeSessions.slice(i, i + 400);
+      const batch = writeBatch(db);
+      chunk.forEach(session => {
         const docRef = doc(collection(db, LOGS_COL));
-        let ts = Date.now();
+        let ts = nowRaw;
         if (randomize) {
           const baseDate = new Date();
           // Random range (17:30 - 19:00)
@@ -460,14 +489,19 @@ export const dataService = {
             confidence: 1.0,
             type: 'EMPLOYEE',
             source: 'ADMIN_BATCH_LOGOUT',
-            date: new Date(ts).toLocaleDateString('en-GB')
+            date: formatDate(ts)
         });
-    });
-    await batch.commit();
-    return { count: activeSessions.length };
+      });
+      await batch.commit();
+      totalAdded += chunk.length;
+    }
+
+    return { count: totalAdded };
   },
 
   forceLogoutAllUsers: async (): Promise<void> => { await dataService.batchClockOutActiveEmployees(); },
+
+  getTodayStr: () => formatDate(new Date()),
 
   getVisitorLogs: async (max: number = 200): Promise<AttendanceLog[]> => {
     const q = query(collection(db, VISITOR_LOGS_COL), orderBy("timestamp", "desc"), limit(max));
@@ -518,7 +552,7 @@ export const dataService = {
     try {
       const lastMainAction = await dataService.getUserLastAction(employee.id);
       if (lastMainAction !== AttendanceAction.LOGIN) return { success: false, error: "ACCESS DENIED: Staff must Clock-In first." };
-      const todayStr = new Date().toLocaleDateString('en-GB');
+      const todayStr = dataService.getTodayStr();
       const q = query(
         collection(db, INFORMAL_LOGS_COL),
         where("employeeId", "==", String(employee.id).trim()),
@@ -703,7 +737,7 @@ export const dataService = {
     const logsToAdd: Omit<AttendanceLog, 'id'>[] = [];
 
     for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
-        const dateStr = d.toLocaleDateString('en-GB', { timeZone: 'Africa/Harare' });
+        const dateStr = formatDate(d);
         if (onProgress) onProgress(`Scanning ${dateStr}...`);
 
         const dayLogs = await dataService.getLogsByDate(dateStr);

@@ -7,10 +7,10 @@ admin.initializeApp();
 const db = admin.firestore();
 
 export const autoLogout = onSchedule({
-  schedule: "every day 04:30",
+  schedule: "every day 00:00",
   timeZone: "Africa/Harare",
 }, async (event) => {
-  console.log("Running scheduled auto-logout at 04:30 Harare time...");
+  console.log("Running scheduled auto-logout at Midnight Harare time...");
 
   const settingsDoc = await db.collection("config").doc("system").get();
   const settings = settingsDoc.data();
@@ -22,11 +22,15 @@ export const autoLogout = onSchedule({
   const [endHours, endMinutes] = settings.dayEnd.split(":").map(Number);
 
   // We want to find anyone who is currently ONSITE.
-  // A simple way is to check the last action for each employee.
   const employeesSnap = await db.collection("employees").get();
 
   const batch = db.batch();
   let logoutCount = 0;
+
+  const harareFormatter = new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    timeZone: 'Africa/Harare'
+  });
 
   for (const empDoc of employeesSnap.docs) {
     const employeeId = empDoc.id;
@@ -43,20 +47,18 @@ export const autoLogout = onSchedule({
       const lastLog = lastLogSnap.docs[0].data();
       if (lastLog.action === AttendanceAction.LOGIN) {
         // Employee is still logged in.
-        // We log them out at the dayEnd of their login day.
         const loginDate = new Date(lastLog.timestamp);
-
-        // Use Harare time to determine the date components
-        const formatter = new Intl.DateTimeFormat('en-GB', {
-          year: 'numeric', month: '2-digit', day: '2-digit',
-          timeZone: 'Africa/Harare'
-        });
-        const formattedDate = formatter.format(loginDate); // DD/MM/YYYY
+        const formattedDate = harareFormatter.format(loginDate);
         const [d, m, y] = formattedDate.split('/');
 
-        // Construct the logout timestamp (UTC+2 for Harare)
-        const logoutDateUTC = new Date(Date.UTC(Number(y), Number(m)-1, Number(d), endHours - 2, endMinutes));
-        const logoutTimestamp = logoutDateUTC.getTime();
+        // Calculate theoretical logout time at dayEnd
+        // Harare is UTC+2
+        let logoutTimestamp = new Date(Date.UTC(Number(y), Number(m)-1, Number(d), endHours - 2, endMinutes)).getTime();
+
+        // If login was after dayEnd, or if logoutTimestamp is before login, logout at login + 1 minute
+        if (logoutTimestamp <= lastLog.timestamp) {
+          logoutTimestamp = lastLog.timestamp + 60000;
+        }
 
         const newLog = {
           subjectId: employeeId,
@@ -67,7 +69,7 @@ export const autoLogout = onSchedule({
           confidence: 1.0,
           type: "EMPLOYEE",
           source: "AUTO_SYSTEM_LOGOUT",
-          date: formattedDate
+          date: harareFormatter.format(new Date(logoutTimestamp))
         };
 
         const newLogRef = db.collection("logs").doc();

@@ -168,7 +168,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, title, data,
                {/* Metadata */}
                <div className="grid grid-cols-4 gap-4 mb-10">
                  {[
-                   { icon: Calendar, label: 'CERTIFICATION DATE', value: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) },
+                   { icon: Calendar, label: 'CERTIFICATION DATE', value: new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Africa/Harare' }).format(new Date()) },
                    { icon: ShieldCheck, label: 'INTEGRITY STATUS', value: 'SYSTEM VERIFIED' },
                    { icon: Users, label: 'TOTAL EMPLOYEES', value: `${employees.length}` },
                    { icon: Briefcase, label: 'REGISTRY TYPE', value: 'MASTER LOG' },

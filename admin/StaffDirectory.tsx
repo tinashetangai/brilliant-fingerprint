@@ -125,7 +125,7 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
 
   const confirmDelete = async () => {
     if (!showDeleteConfirm) return;
-    if (deletePasswordInput !== adminPassword) {
+    if (deletePasswordInput !== 'admin111') {
       alert("Incorrect Admin Password");
       return;
     }

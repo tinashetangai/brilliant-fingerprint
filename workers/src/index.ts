@@ -323,6 +323,11 @@ async function handleLogEntry(req: Request, env: Env) {
     }
   }
 
+  const harareFormatter = new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    timeZone: 'Africa/Harare'
+  });
+
   const logEntry = {
     subjectId: employee.id,
     subjectName: employee.name,
@@ -332,14 +337,14 @@ async function handleLogEntry(req: Request, env: Env) {
     type: 'EMPLOYEE',
     confidence: 1.0,
     source: source,
-    date: new Date(nowRaw).toLocaleDateString('en-GB')
+    date: harareFormatter.format(new Date(nowRaw))
   };
 
   await createDocument(env, token, 'logs', logEntry);
   if (isOvertime) {
     await createDocument(env, token, 'overtime_decisions', {
       employeeId: employee.id,
-      date: adjustedTime.toLocaleDateString('en-GB'),
+      date: harareFormatter.format(adjustedTime),
       hours: parseFloat(otHours.toFixed(2)),
       status: 'PENDING',
       timestamp: nowRaw
