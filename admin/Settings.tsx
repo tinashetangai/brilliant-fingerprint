@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Save, Settings as SettingsIcon, Building2, Plus, Trash2, Edit2, Check, X, Clock, ShieldCheck, Briefcase, Lock, Loader, ChevronRight, Download, Users, AlertTriangle, Database, Calendar, Wand2 } from 'lucide-react';
 import { SystemSettings, Department, Employee, AttendanceAction, LogStatus, AttendanceLog } from '../types';
 import * as XLSX from 'xlsx';
-import { dataService } from '../services/dataService';
+import { dataService, formatDate } from '../services/dataService';
 
 interface SettingsProps {
   settings: SystemSettings | null;
@@ -241,7 +241,7 @@ const Settings: React.FC<SettingsProps> = ({
                 confidence: 1.0,
                 type: 'EMPLOYEE',
                 source: 'ADMIN_SEEDING',
-                date: logDate.toLocaleDateString('en-GB')
+                date: formatDate(logDate)
             });
         });
 

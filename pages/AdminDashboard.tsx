@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Lock, RefreshCcw, ShieldAlert, X, Loader2, FileBarChart, Download, Filter } from 'lucide-react';
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { dataService } from '../services/dataService';
+import { dataService, formatDate } from '../services/dataService';
 import { auth } from '../backend/firebase';
 import { Employee, AttendanceLog, SystemSettings, Notice, Department, InformalLog, FrequentVisitor, OvertimeDecision, LogStatus, AttendanceAction } from '../types';
 import AdminSidebar, { AdminTab } from '../components/AdminSidebar';
@@ -79,7 +79,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
   // Purge State
   const [showPurgeModal, setShowPurgeModal] = useState(false);
   const [isPurging, setIsPurging] = useState(false);
-  const [selectedLogsDate, setSelectedLogsDate] = useState<string>(new Date().toLocaleDateString('en-GB', { timeZone: 'Africa/Harare' }));
+  const [selectedLogsDate, setSelectedLogsDate] = useState<string>(formatDate(new Date()));
 
   const [adminNotification, setAdminNotification] = useState<{id: number, msg: string, sub: string, type: 'success' | 'error'} | null>(null);
   
@@ -242,11 +242,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
           const yesterday = new Date(now);
           yesterday.setDate(yesterday.getDate() - 1);
           
-          const yesterdayStr = yesterday.toLocaleDateString('en-GB', { 
-            day: '2-digit', 
-            month: '2-digit', 
-            year: 'numeric' 
-          });
+          const yesterdayStr = formatDate(yesterday);
 
           // We might need to fetch full logs for this report if they aren't loaded
           dataService.getLogs(1000).then(fullLogs => {
@@ -560,7 +556,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
               </div>
               <div className="flex items-center gap-3">
                 <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-100 px-3 py-1.5 rounded-none">
-                  {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  {new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Harare' }).format(new Date())}
                 </div>
                 {/* Only show loader if we are doing a hard refresh */}
                 <button onClick={loadFullHistory} className={`p-2 border border-slate-200 bg-white rounded-none hover:bg-slate-50 transition-all ${isRefreshing ? 'text-blue-600' : 'text-slate-400'}`}>

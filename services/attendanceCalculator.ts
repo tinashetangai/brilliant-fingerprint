@@ -1,6 +1,6 @@
 
 import { AttendanceLog, AttendanceAction, SystemSettings, OvertimeDecision, OvertimeStatus, DailyWorkRecord, AttendanceSession } from '../types';
-import { dataService } from './dataService';
+import { dataService, formatDate } from './dataService';
 
 /**
  * ATTENDANCE CALCULATOR SERVICE
@@ -67,7 +67,7 @@ export const attendanceCalculator = {
     // Include seconds in the decimal calculation (1 hour = 3600 seconds)
     const nowDecimal = nowH + (nowM / 60) + (nowS / 3600);
     
-    const todayDateKey = nowAdjusted.toLocaleDateString('en-GB', { timeZone: 'Africa/Harare' });
+    const todayDateKey = formatDate(nowAdjusted);
 
     sessions.forEach(session => {
       let inDecimal = timeStringToDecimal(session.timeIn);

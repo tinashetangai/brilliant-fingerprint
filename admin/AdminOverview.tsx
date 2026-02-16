@@ -18,7 +18,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { Employee, AttendanceLog, AttendanceAction, SystemSettings, LogStatus } from '../types';
-import { dataService } from '../services/dataService';
+import { dataService, formatDate } from '../services/dataService';
 
 interface AdminOverviewProps {
   employees: Employee[];
@@ -480,7 +480,7 @@ const AdminOverview: React.FC<AdminOverviewProps> = ({ employees, logs, onQuickA
           <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">Management</h2>
           <div className='inline-flex items-center gap-2 px-3 py-1 bg-white rounded-none text-[9px] font-black uppercase tracking-widest text-slate-400 border border-slate-200'>
             <Calendar size={12} className="text-emerald-500" /> 
-            {timeFilter}: {new Date().toLocaleDateString('en-GB')}
+            {timeFilter}: {formatDate(new Date())}
           </div>
         </div>
 

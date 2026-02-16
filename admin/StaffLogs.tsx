@@ -2,7 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Search, ArrowRight, Download, CheckCircle2, Trash2, LogIn, LogOut, Clock, Calendar, Cpu, AlertTriangle, Edit3, UserCheck, X, Square, Loader2 } from 'lucide-react';
 import { AttendanceLog, AttendanceSession, Employee, AttendanceAction, LogStatus } from '../types';
-import { dataService } from '../services/dataService';
+import { dataService, formatDate } from '../services/dataService';
 
 interface StaffLogsProps {
   logs: AttendanceLog[];
@@ -58,7 +58,7 @@ const StaffLogs: React.FC<StaffLogsProps> = ({
         const logoutLog = logs.find(l => 
             String(l.subjectId).trim() === sess.subjectId && 
             l.action === 'LOGOUT' && 
-            new Date(l.timestamp).toLocaleDateString('en-GB') === sess.date &&
+            formatDate(l.timestamp) === sess.date &&
             l.source === 'AUTO_SYSTEM_CRON'
         );
         return { ...sess, isAutoLogout: !!logoutLog };
@@ -328,14 +328,14 @@ const StaffLogs: React.FC<StaffLogsProps> = ({
                 className="bg-transparent text-[11px] font-black uppercase outline-none cursor-pointer"
               />
             </div>
-            {selectedDate === new Date().toLocaleDateString('en-GB', { timeZone: 'Africa/Harare' }) && (
+            {selectedDate === formatDate(new Date()) && (
               <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 border border-emerald-100 rounded-md">
                 <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
                 <span className="text-[8px] font-black text-emerald-600 uppercase tracking-tighter">Current Day</span>
               </div>
             )}
             <button
-              onClick={() => onDateChange(new Date().toLocaleDateString('en-GB', { timeZone: 'Africa/Harare' }))}
+              onClick={() => onDateChange(formatDate(new Date()))}
               className="ml-auto px-3 py-1.5 bg-white border border-slate-200 text-[8px] font-black uppercase text-slate-500 hover:text-black hover:border-black transition-all rounded-md"
             >
               Today
