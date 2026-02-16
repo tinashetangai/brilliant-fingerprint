@@ -18,9 +18,11 @@ import {
 import { ref, onValue } from "firebase/database";
 import { db, rtdb } from "./firebase";
 import { Employee, AttendanceLog, LogStatus, AttendanceAction, SystemSettings, Notice, AttendanceSession, Department, InformalLog, FrequentVisitor, OvertimeDecision } from "../types";
+import { SEED_EMPLOYEES } from './seedData';
+import { formatDate } from './dateUtils';
 
 const EMPLOYEES_COL = "employees";
-const DAILY_LOGS_COL = "daily_logs";
+const DAILY_LOGS_COL = "day_by_day_logs";
 const VISITOR_LOGS_COL = "visitor_logs";
 const INFORMAL_LOGS_COL = "informal_logs";
 const SETTINGS_DOC = "config/system";
@@ -34,15 +36,6 @@ const TIME_OFFSET = 0;
 
 // --- CLOUDFLARE WORKER URL ---
 const WORKER_URL = "https://knockout-attendance-worker.mordenfarm1677.workers.dev"; 
-
-export const formatDate = (date: Date | number) => {
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'Africa/Harare'
-  }).format(typeof date === 'number' ? new Date(date) : date).replace(/\./g, '');
-};
 
 const normalizeTs = (ts: any): number => {
   if (!ts) return 0;
@@ -88,13 +81,33 @@ export const dataService = {
   parseDailyDocToLogs: (dateStr: string, data: any): AttendanceLog[] => {
     const logs: AttendanceLog[] = [];
     const users = data.users || {};
+
+    const parseTime = (dStr: string, tStr: string): number => {
+      try {
+        const parts = dStr.split(' ');
+        if (parts.length !== 3) return 0;
+        const day = parseInt(parts[0]);
+        const monthStr = parts[1];
+        const year = parseInt(parts[2]);
+        const months: Record<string, number> = {
+          Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+          Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11
+        };
+        const [h, m] = tStr.split(':').map(Number);
+        // CAT is UTC+2, so subtract 2 from hours for UTC timestamp
+        return Date.UTC(year, months[monthStr], day, h - 2, m, 0);
+      } catch (e) {
+        return 0;
+      }
+    };
+
     for (const [userId, userLog] of Object.entries(users) as any) {
       if (userLog.login) {
         logs.push({
           id: `${userId}_login_${dateStr}`,
           subjectId: userId,
           subjectName: userLog.name,
-          timestamp: userLog.loginTs || 0,
+          timestamp: userLog.loginTs || parseTime(dateStr, userLog.login),
           action: AttendanceAction.LOGIN,
           status: LogStatus.SUCCESS,
           type: 'EMPLOYEE',
@@ -106,7 +119,7 @@ export const dataService = {
           id: `${userId}_logout_${dateStr}`,
           subjectId: userId,
           subjectName: userLog.name,
-          timestamp: userLog.logoutTs || 0,
+          timestamp: userLog.logoutTs || parseTime(dateStr, userLog.logout),
           action: AttendanceAction.LOGOUT,
           status: LogStatus.SUCCESS,
           type: 'EMPLOYEE',
@@ -230,22 +243,54 @@ export const dataService = {
   },
 
   batchAddLogs: async (logs: Omit<AttendanceLog, 'id'>[]): Promise<{ count: number }> => {
+    return dataService.batchAddLogsDirectly(logs);
+  },
+
+  batchAddLogsDirectly: async (logs: Omit<AttendanceLog, 'id'>[]): Promise<{ count: number }> => {
     if (logs.length === 0) return { count: 0 };
-    const chunks = [];
-    for (let i = 0; i < logs.length; i += 50) chunks.push(logs.slice(i, i + 50));
-    let count = 0;
-    for (const chunk of chunks) {
-        try {
-            const response = await fetch(`${WORKER_URL}/api/admin/seed`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ logs: chunk })
+
+    // Group logs by date
+    const logsByDate: Record<string, Omit<AttendanceLog, 'id'>[]> = {};
+    logs.forEach(l => {
+        const d = l.date || formatDate(l.timestamp);
+        if (!logsByDate[d]) logsByDate[d] = [];
+        logsByDate[d].push(l);
+    });
+
+    for (const [dateStr, dayLogs] of Object.entries(logsByDate)) {
+        const docRef = doc(db, DAILY_LOGS_COL, dateStr);
+        const snap = await getDoc(docRef);
+
+        const dateBase = new Date(dayLogs[0].timestamp);
+        dateBase.setUTCHours(0, 0, 0, 0);
+
+        if (!snap.exists()) {
+            await setDoc(docRef, {
+                date: dateStr,
+                dateTs: dateBase.getTime(),
+                users: {}
             });
-            const data = await response.json();
-            if (data.success) count += data.count;
-        } catch (e) { console.error("Batch seed failed", e); }
+        }
+
+        const updateData: any = {};
+        dayLogs.forEach(log => {
+            const timeStr = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Harare', hour12: false }).format(new Date(log.timestamp));
+            const fieldPrefix = `users.${log.subjectId}`;
+
+            updateData[`${fieldPrefix}.name`] = log.subjectName;
+            if (log.action === AttendanceAction.LOGIN) {
+                updateData[`${fieldPrefix}.login`] = timeStr;
+                updateData[`${fieldPrefix}.loginTs`] = log.timestamp;
+            } else {
+                updateData[`${fieldPrefix}.logout`] = timeStr;
+                updateData[`${fieldPrefix}.logoutTs`] = log.timestamp;
+            }
+        });
+
+        await updateDoc(docRef, updateData);
     }
-    return { count };
+
+    return { count: logs.length };
   },
 
   batchDeleteLogs: async (logIds: string[], onProgress?: (count: number, total: number) => void): Promise<{ count: number }> => {
@@ -340,6 +385,10 @@ export const dataService = {
     const snap = await getDoc(docRef);
     if (!snap.exists()) return [];
     return dataService.parseDailyDocToLogs(dateStr, snap.data());
+  },
+
+  getLogsForDate: async (dateStr: string): Promise<AttendanceLog[]> => {
+    return dataService.getLogsByDate(dateStr);
   },
 
   getLogsForEmployee: async (employeeId: string, limitCount: number = 50): Promise<AttendanceLog[]> => {
@@ -562,5 +611,78 @@ export const dataService = {
     } else {
       await addDoc(collection(db, OVERTIME_DECISIONS_COL), { ...decision, timestamp: Date.now() });
     }
+  },
+
+  ensureSeedEmployeesExist: async (onProgress?: (msg: string) => void): Promise<void> => {
+    const existingEmployees = await dataService.getEmployees();
+    const existingPins = new Set(existingEmployees.map(e => String(e.pin).trim()));
+
+    let addedCount = 0;
+    for (const emp of SEED_EMPLOYEES) {
+      if (!existingPins.has(String(emp.pin).trim())) {
+        if (onProgress) onProgress(`Adding employee: ${emp.name}...`);
+        await dataService.addEmployee({
+          name: emp.name,
+          pin: emp.pin,
+          department: emp.department,
+          isSales: false
+        });
+        addedCount++;
+      }
+    }
+    if (onProgress && addedCount > 0) onProgress(`Added ${addedCount} new employees.`);
+  },
+
+  seedHistoricalLogsDirectly: async (onProgress?: (msg: string) => void): Promise<{ count: number }> => {
+    await dataService.ensureSeedEmployeesExist(onProgress);
+
+    const start = new Date(2026, 1, 1); // Feb 1, 2026
+    const end = new Date(2026, 1, 15);   // Feb 15, 2026
+
+    let totalLogs = 0;
+
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const dateStr = formatDate(d);
+      if (onProgress) onProgress(`Generating logs for ${dateStr}...`);
+
+      const yearNum = d.getFullYear();
+      const monthNum = d.getMonth();
+      const dayNum = d.getDate();
+
+      const users: Record<string, any> = {};
+
+      for (const emp of SEED_EMPLOYEES) {
+        // Random Login: 07:00 - 08:00 CAT (05:00 - 06:00 UTC)
+        const loginMin = Math.floor(Math.random() * 60);
+        const loginTs = Date.UTC(yearNum, monthNum, dayNum, 5, loginMin, Math.floor(Math.random() * 60));
+        const loginTimeStr = `07:${String(loginMin).padStart(2, '0')}`;
+
+        // Random Logout: 16:00 - 18:00 CAT (14:00 - 16:00 UTC)
+        const logoutHourCAT = 16 + Math.floor(Math.random() * 2);
+        const logoutMin = Math.floor(Math.random() * 60);
+        const logoutTs = Date.UTC(yearNum, monthNum, dayNum, logoutHourCAT - 2, logoutMin, Math.floor(Math.random() * 60));
+        const logoutTimeStr = `${String(logoutHourCAT).padStart(2, '0')}:${String(logoutMin).padStart(2, '0')}`;
+
+        users[emp.pin] = {
+          name: emp.name,
+          login: loginTimeStr,
+          loginTs: loginTs,
+          logout: logoutTimeStr,
+          logoutTs: logoutTs
+        };
+        totalLogs += 2;
+      }
+
+      const docRef = doc(db, DAILY_LOGS_COL, dateStr);
+      const dateBase = new Date(Date.UTC(yearNum, monthNum, dayNum, 0, 0, 0));
+
+      await setDoc(docRef, {
+        date: dateStr,
+        dateTs: dateBase.getTime(),
+        users: users
+      });
+    }
+
+    return { count: totalLogs };
   }
 };

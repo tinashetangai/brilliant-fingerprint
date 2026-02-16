@@ -24,9 +24,9 @@ name = "knockout-attendance-worker"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
 
-# Cron Trigger: Runs every day at 00:00 UTC
+# Cron Trigger: Runs every day at 00:00 CAT (22:00 UTC)
 [triggers]
-crons = ["0 0 * * *"]
+crons = ["0 22 * * *"]
 
 [vars]
 FIREBASE_PROJECT_ID = "brilliant-chemicals"
@@ -62,5 +62,8 @@ wrangler deploy
 ## 7. Testing
 1. **PIN Login**: Go to the web app. Use "Gate Pass" or "Visitor" -> "Login". Enter a valid PIN.
    - It should say "Identity Verified" via the new server.
-2. **Auto-Logout**: Wait for 00:00 UTC (or trigger the cron manually in Cloudflare Dashboard -> Workers -> Triggers).
+2. **Auto-Logout**: Wait for 00:00 CAT (or trigger the cron manually in Cloudflare Dashboard -> Workers -> Triggers).
 3. **Overtime**: Log out a user after the `dayEnd` time set in Admin Settings. Check `Overtime Manager` in Admin Dashboard.
+
+## 8. Database Schema
+The system uses the `day_by_day_logs` collection in Firestore. Each document represents a single day and contains a `users` map of employee PINs to their attendance data.

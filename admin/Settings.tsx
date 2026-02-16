@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Save, Settings as SettingsIcon, Building2, Plus, Trash2, Edit2, Check, X, Clock, ShieldCheck, Briefcase, Lock, Loader, ChevronRight, Download, Users, AlertTriangle, Database, Calendar, Wand2 } from 'lucide-react';
 import { SystemSettings, Department, Employee, AttendanceAction, LogStatus, AttendanceLog } from '../types';
 import * as XLSX from 'xlsx';
-import { dataService, formatDate } from '../services/dataService';
+import { dataService } from '../services/dataService';
+import { formatDate } from '../services/dateUtils';
 
 interface SettingsProps {
   settings: SystemSettings | null;
@@ -261,59 +262,20 @@ const Settings: React.FC<SettingsProps> = ({
   };
 
   const handleRangeSeed = async () => {
-    if (!confirm(`This will generate LOGIN/LOGOUT logs for ALL employees from ${rangeSeedStart} to ${rangeSeedEnd}. Continue?`)) return;
+    if (!confirm(`This will generate random logs (07:00-08:00 & 16:00-18:00) for the hardcoded employee list from Feb 1 to Feb 15, 2026 directly to the database. Continue?`)) return;
     setBatchLoading(true);
-    setPurgeLogs(["Initializing range seed..."]);
+    setPurgeLogs(["Initializing direct historical seed..."]);
 
     try {
-        const start = new Date(rangeSeedStart);
-        const end = new Date(rangeSeedEnd);
-        const allLogsToAdd: Omit<AttendanceLog, 'id'>[] = [];
+        const res = await dataService.seedHistoricalLogsDirectly((msg) => {
+            setPurgeLogs(prev => [...prev.slice(-15), `[${new Date().toLocaleTimeString()}] ${msg}`]);
+        });
 
-        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-            const dateStr = formatDate(d);
-            const [year, month, day] = [d.getFullYear(), d.getMonth(), d.getDate()];
-
-            employees.forEach(emp => {
-                // Login: 06:30 - 08:30
-                const loginTs = new Date(Date.UTC(year, month, day, 4, 30, 0)).getTime() + Math.floor(Math.random() * 120 * 60000);
-                // Logout: 17:05 - 18:46
-                const logoutTs = new Date(Date.UTC(year, month, day, 15, 5, 0)).getTime() + Math.floor(Math.random() * 101 * 60000);
-
-                allLogsToAdd.push({
-                    subjectId: emp.id,
-                    subjectName: emp.name,
-                    timestamp: loginTs,
-                    action: AttendanceAction.LOGIN,
-                    status: LogStatus.SUCCESS,
-                    type: 'EMPLOYEE',
-                    confidence: 1.0,
-                    source: 'RANGE_SEED',
-                    date: dateStr
-                });
-
-                allLogsToAdd.push({
-                    subjectId: emp.id,
-                    subjectName: emp.name,
-                    timestamp: logoutTs,
-                    action: AttendanceAction.LOGOUT,
-                    status: LogStatus.SUCCESS,
-                    type: 'EMPLOYEE',
-                    confidence: 1.0,
-                    source: 'RANGE_SEED',
-                    date: dateStr
-                });
-            });
-        }
-
-        setPurgeLogs(prev => [...prev.slice(-15), `[${new Date().toLocaleTimeString()}] Sending ${allLogsToAdd.length} records to server...`]);
-        const res = await dataService.batchAddLogs(allLogsToAdd);
-
-        alert(`Success! Generated ${res.count} records across the selected range.`);
+        alert(`Success! Generated ${res.count} records directly in the database.`);
         onRefresh();
     } catch (e: any) {
         console.error(e);
-        alert("Range seed failed.");
+        alert(`Seed failed: ${e.message}`);
     } finally {
         setBatchLoading(false);
     }
@@ -766,27 +728,20 @@ const Settings: React.FC<SettingsProps> = ({
                         <div className="p-6 bg-purple-50 border border-purple-100 rounded-2xl flex flex-col items-start gap-4 md:col-span-2">
                             <div className="flex items-center gap-3">
                                 <Calendar size={20} className="text-purple-600" />
-                                <h4 className="text-sm font-black uppercase text-purple-900">Historical Range Seeding</h4>
+                                <h4 className="text-sm font-black uppercase text-purple-900">Historical Range Seeding (Direct)</h4>
                             </div>
-                            <div className="grid grid-cols-2 gap-4 w-full">
-                                <div>
-                                    <label className="text-[9px] font-black uppercase text-purple-400 ml-1">Start Date</label>
-                                    <input type="date" value={rangeSeedStart} onChange={e => setRangeSeedStart(e.target.value)} className="w-full p-3 bg-white border border-purple-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-purple-500" />
-                                </div>
-                                <div>
-                                    <label className="text-[9px] font-black uppercase text-purple-400 ml-1">End Date</label>
-                                    <input type="date" value={rangeSeedEnd} onChange={e => setRangeSeedEnd(e.target.value)} className="w-full p-3 bg-white border border-purple-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-purple-500" />
-                                </div>
-                            </div>
+
                             <p className="text-[10px] font-bold text-purple-600">
-                                Generates random <b>Logins (06:30-08:30)</b> and <b>Logouts (17:05-18:46)</b> for <b>ALL</b> employees for every day in the range.
+                                Generates random <b>Logins (07:00-08:00)</b> and <b>Logouts (16:00-18:00)</b> for <b>HARDCODED</b> employees for <b>Feb 1 - Feb 15, 2026</b>.
+                                <br/><br/>
+                                This operation writes <b>DIRECTLY</b> to the database (day_by_day_logs) and bypasses the worker.
                             </p>
                             <button
                                 onClick={handleRangeSeed}
                                 disabled={batchLoading}
                                 className="w-full py-4 bg-purple-600 text-white rounded-xl font-black uppercase text-xs tracking-[0.2em] shadow-lg hover:bg-purple-700 transition-all flex items-center justify-center gap-2"
                             >
-                                <Wand2 size={16} /> Seed Selected Range
+                                <Wand2 size={16} /> Seed Feb 1 - Feb 15 (Hardcoded)
                             </button>
                             {batchLoading && purgeLogs.length > 0 && !batchConfirm && (
                                 <div className="w-full mt-4 p-4 bg-black text-purple-400 font-mono text-[9px] rounded-xl h-24 overflow-y-auto border border-purple-900 shadow-inner">

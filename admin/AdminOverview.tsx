@@ -18,7 +18,8 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { Employee, AttendanceLog, AttendanceAction, SystemSettings, LogStatus } from '../types';
-import { dataService, formatDate } from '../services/dataService';
+import { dataService } from '../services/dataService';
+import { formatDate } from '../services/dateUtils';
 
 interface AdminOverviewProps {
   employees: Employee[];

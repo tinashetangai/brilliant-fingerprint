@@ -1,0 +1,9 @@
+name = "knockout-attendance-worker"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[triggers]
+crons = ["0 22 * * *"]
+
+[vars]
+FIREBASE_PROJECT_ID = "brilliant-chemicals"
