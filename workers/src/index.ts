@@ -28,7 +28,7 @@ const CORS_HEADERS = {
 
 // Fallback Project ID from frontend config
 const DEFAULT_PROJECT_ID = "brilliant-chemicals";
-const DAILY_LOGS_COL = "daily_logs";
+const DAILY_LOGS_COL = "logs-by-day";
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
