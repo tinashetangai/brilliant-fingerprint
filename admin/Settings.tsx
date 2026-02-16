@@ -57,6 +57,8 @@ const Settings: React.FC<SettingsProps> = ({
 
   // Batch Editor State
   const [batchEditDate, setBatchEditDate] = useState(new Date().toISOString().split('T')[0]);
+  const [rangeSeedStart, setRangeSeedStart] = useState(new Date().toISOString().split('T')[0]);
+  const [rangeSeedEnd, setRangeSeedEnd] = useState(new Date().toISOString().split('T')[0]);
 
   const handleBackup = () => {
     const data = employees.map(emp => ({
@@ -255,6 +257,65 @@ const Settings: React.FC<SettingsProps> = ({
         alert("Seeding failed.");
     } finally {
         setIsSeeding(false);
+    }
+  };
+
+  const handleRangeSeed = async () => {
+    if (!confirm(`This will generate LOGIN/LOGOUT logs for ALL employees from ${rangeSeedStart} to ${rangeSeedEnd}. Continue?`)) return;
+    setBatchLoading(true);
+    setPurgeLogs(["Initializing range seed..."]);
+
+    try {
+        const start = new Date(rangeSeedStart);
+        const end = new Date(rangeSeedEnd);
+        const allLogsToAdd: Omit<AttendanceLog, 'id'>[] = [];
+
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            const dateStr = formatDate(d);
+            const [year, month, day] = [d.getFullYear(), d.getMonth(), d.getDate()];
+
+            employees.forEach(emp => {
+                // Login: 06:30 - 08:30
+                const loginTs = new Date(Date.UTC(year, month, day, 4, 30, 0)).getTime() + Math.floor(Math.random() * 120 * 60000);
+                // Logout: 17:05 - 18:46
+                const logoutTs = new Date(Date.UTC(year, month, day, 15, 5, 0)).getTime() + Math.floor(Math.random() * 101 * 60000);
+
+                allLogsToAdd.push({
+                    subjectId: emp.id,
+                    subjectName: emp.name,
+                    timestamp: loginTs,
+                    action: AttendanceAction.LOGIN,
+                    status: LogStatus.SUCCESS,
+                    type: 'EMPLOYEE',
+                    confidence: 1.0,
+                    source: 'RANGE_SEED',
+                    date: dateStr
+                });
+
+                allLogsToAdd.push({
+                    subjectId: emp.id,
+                    subjectName: emp.name,
+                    timestamp: logoutTs,
+                    action: AttendanceAction.LOGOUT,
+                    status: LogStatus.SUCCESS,
+                    type: 'EMPLOYEE',
+                    confidence: 1.0,
+                    source: 'RANGE_SEED',
+                    date: dateStr
+                });
+            });
+        }
+
+        setPurgeLogs(prev => [...prev.slice(-15), `[${new Date().toLocaleTimeString()}] Sending ${allLogsToAdd.length} records to server...`]);
+        const res = await dataService.batchAddLogs(allLogsToAdd);
+
+        alert(`Success! Generated ${res.count} records across the selected range.`);
+        onRefresh();
+    } catch (e: any) {
+        console.error(e);
+        alert("Range seed failed.");
+    } finally {
+        setBatchLoading(false);
     }
   };
 
@@ -695,6 +756,40 @@ const Settings: React.FC<SettingsProps> = ({
                             </button>
                             {batchLoading && batchConfirm === 'FILL_BLANKS' && (
                                 <div className="w-full mt-4 p-4 bg-black text-blue-400 font-mono text-[9px] rounded-xl h-24 overflow-y-auto border border-blue-900 shadow-inner">
+                                    {purgeLogs.map((l, i) => (
+                                        <div key={i}>{l}</div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-6 bg-purple-50 border border-purple-100 rounded-2xl flex flex-col items-start gap-4 md:col-span-2">
+                            <div className="flex items-center gap-3">
+                                <Calendar size={20} className="text-purple-600" />
+                                <h4 className="text-sm font-black uppercase text-purple-900">Historical Range Seeding</h4>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 w-full">
+                                <div>
+                                    <label className="text-[9px] font-black uppercase text-purple-400 ml-1">Start Date</label>
+                                    <input type="date" value={rangeSeedStart} onChange={e => setRangeSeedStart(e.target.value)} className="w-full p-3 bg-white border border-purple-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-purple-500" />
+                                </div>
+                                <div>
+                                    <label className="text-[9px] font-black uppercase text-purple-400 ml-1">End Date</label>
+                                    <input type="date" value={rangeSeedEnd} onChange={e => setRangeSeedEnd(e.target.value)} className="w-full p-3 bg-white border border-purple-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-purple-500" />
+                                </div>
+                            </div>
+                            <p className="text-[10px] font-bold text-purple-600">
+                                Generates random <b>Logins (06:30-08:30)</b> and <b>Logouts (17:05-18:46)</b> for <b>ALL</b> employees for every day in the range.
+                            </p>
+                            <button
+                                onClick={handleRangeSeed}
+                                disabled={batchLoading}
+                                className="w-full py-4 bg-purple-600 text-white rounded-xl font-black uppercase text-xs tracking-[0.2em] shadow-lg hover:bg-purple-700 transition-all flex items-center justify-center gap-2"
+                            >
+                                <Wand2 size={16} /> Seed Selected Range
+                            </button>
+                            {batchLoading && purgeLogs.length > 0 && !batchConfirm && (
+                                <div className="w-full mt-4 p-4 bg-black text-purple-400 font-mono text-[9px] rounded-xl h-24 overflow-y-auto border border-purple-900 shadow-inner">
                                     {purgeLogs.map((l, i) => (
                                         <div key={i}>{l}</div>
                                     ))}

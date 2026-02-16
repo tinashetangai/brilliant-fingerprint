@@ -185,14 +185,39 @@ async function handleAutoLogout(env: Env) {
 }
 
 async function handlePurge(req: Request, env: Env) {
-  // Purge all daily logs
+  let body: any;
+  try { body = await req.json(); } catch { body = {}; }
+  const { startTs, endTs } = body;
+
   const token = await getToken(env);
   const projectId = env.FIREBASE_PROJECT_ID || DEFAULT_PROJECT_ID;
-  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${DAILY_LOGS_COL}`;
 
-  const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
-  const data: any = await res.json();
-  const docs = data.documents || [];
+  let docs = [];
+  if (startTs && endTs) {
+    const queryUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery`;
+    const query = {
+      structuredQuery: {
+        from: [{ collectionId: DAILY_LOGS_COL }],
+        where: {
+          compositeFilter: {
+            op: 'AND',
+            filters: [
+              { fieldFilter: { field: { fieldPath: 'dateTs' }, op: 'GREATER_THAN_OR_EQUAL', value: { integerValue: String(startTs) } } },
+              { fieldFilter: { field: { fieldPath: 'dateTs' }, op: 'LESS_THAN_OR_EQUAL', value: { integerValue: String(endTs) } } }
+            ]
+          }
+        }
+      }
+    };
+    const res = await fetch(queryUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(query) });
+    const data: any = await res.json();
+    docs = (data || []).filter((d: any) => d.document).map((d: any) => d.document);
+  } else {
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${DAILY_LOGS_COL}`;
+    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+    const data: any = await res.json();
+    docs = data.documents || [];
+  }
 
   if (docs.length === 0) return new Response(JSON.stringify({ success: true, count: 0 }), { headers: CORS_HEADERS });
 
@@ -209,9 +234,39 @@ async function handlePurge(req: Request, env: Env) {
 }
 
 async function handleDeleteLogs(req: Request, env: Env) {
-  // For daily logs, deleting individual logs means removing fields from the map
-  // This is complex. For now, let's just return success.
-  return new Response(JSON.stringify({ success: true, count: 0 }), { headers: CORS_HEADERS });
+  let body: any;
+  try { body = await req.json(); } catch { return new Response(JSON.stringify({ success: false, error: 'Invalid JSON' }), { headers: CORS_HEADERS }); }
+  const { logIds } = body;
+  if (!logIds || !Array.isArray(logIds)) return new Response(JSON.stringify({ success: false, error: 'logIds array required' }), { headers: CORS_HEADERS });
+
+  let token = await getToken(env);
+  const projectId = env.FIREBASE_PROJECT_ID || DEFAULT_PROJECT_ID;
+
+  const deletionsByDate: Record<string, string[]> = {};
+  logIds.forEach(id => {
+    const parts = id.split('_');
+    if (parts.length < 3) return;
+    const userId = parts[0];
+    const type = parts[1];
+    const dateStr = parts.slice(2).join('_');
+    if (!deletionsByDate[dateStr]) deletionsByDate[dateStr] = [];
+    deletionsByDate[dateStr].push(`users.${userId}.${type}`);
+    deletionsByDate[dateStr].push(`users.${userId}.${type}Ts`);
+  });
+
+  for (const [dateStr, paths] of Object.entries(deletionsByDate)) {
+    const docUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${DAILY_LOGS_COL}/${encodeURIComponent(dateStr)}`;
+    const updateMask = paths.map(p => `updateMask.fieldPaths=${p}`).join('&');
+    const url = `${docUrl}?${updateMask}`;
+
+    await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: {} })
+    });
+  }
+
+  return new Response(JSON.stringify({ success: true, count: logIds.length }), { headers: CORS_HEADERS });
 }
 
 async function handleSeed(req: Request, env: Env) {
@@ -221,19 +276,18 @@ async function handleSeed(req: Request, env: Env) {
   if (!logs || !Array.isArray(logs)) return new Response(JSON.stringify({ success: false, error: 'Logs array required' }), { headers: CORS_HEADERS });
 
   let token = await getToken(env);
-  let count = 0;
 
-  for (const log of logs) {
-    const dateStr = log.date;
-    const empId = log.subjectId;
-    const action = log.action;
-    const timeStr = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Harare', hour12: false }).format(new Date(log.timestamp));
+  const logsByDate: Record<string, any[]> = {};
+  logs.forEach(l => {
+    if (!logsByDate[l.date]) logsByDate[l.date] = [];
+    logsByDate[l.date].push(l);
+  });
 
-    await patchDailyLog(env, token, dateStr, empId, log.subjectName, action, timeStr, log.timestamp);
-    count++;
+  for (const [dateStr, dayLogs] of Object.entries(logsByDate)) {
+    await patchDailyLogMulti(env, token, dateStr, dayLogs);
   }
 
-  return new Response(JSON.stringify({ success: true, count }), { headers: CORS_HEADERS });
+  return new Response(JSON.stringify({ success: true, count: logs.length }), { headers: CORS_HEADERS });
 }
 
 // --- HELPERS ---
@@ -247,51 +301,54 @@ async function getDailyLog(env: Env, token: string, dateStr: string) {
 }
 
 async function patchDailyLog(env: Env, token: string, dateStr: string, empId: string, empName: string, action: string, timeStr: string, ts: number) {
+  await patchDailyLogMulti(env, token, dateStr, [{ subjectId: empId, subjectName: empName, action, timestamp: ts }]);
+}
+
+async function patchDailyLogMulti(env: Env, token: string, dateStr: string, logs: any[]) {
   const projectId = env.FIREBASE_PROJECT_ID || DEFAULT_PROJECT_ID;
   const docUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${DAILY_LOGS_COL}/${encodeURIComponent(dateStr)}`;
 
-  // Create start of day timestamp for sorting
+  const ts = logs[0].timestamp;
   const startOfDay = new Date(ts);
   startOfDay.setUTCHours(0,0,0,0);
   const dateTs = startOfDay.getTime();
 
-  // Nested structure for the body
+  const userFields: any = {};
+  const paths = ['date', 'dateTs'];
+
+  logs.forEach(log => {
+    const empId = log.subjectId;
+    const action = log.action;
+    const timeStr = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Harare', hour12: false }).format(new Date(log.timestamp));
+
+    if (!userFields[empId]) userFields[empId] = { mapValue: { fields: { name: { stringValue: log.subjectName } } } };
+
+    const fields = userFields[empId].mapValue.fields;
+    if (action === 'LOGIN') {
+      fields['login'] = { stringValue: timeStr };
+      fields['loginTs'] = { integerValue: log.timestamp };
+      paths.push(`users.${empId}.login`, `users.${empId}.loginTs`);
+    } else {
+      fields['logout'] = { stringValue: timeStr };
+      fields['logoutTs'] = { integerValue: log.timestamp };
+      paths.push(`users.${empId}.logout`, `users.${empId}.logoutTs`);
+    }
+    paths.push(`users.${empId}.name`);
+  });
+
   const body = {
     fields: {
       date: { stringValue: dateStr },
       dateTs: { integerValue: dateTs },
       users: {
         mapValue: {
-          fields: {
-            [empId]: {
-              mapValue: {
-                fields: {
-                  name: { stringValue: empName },
-                  ...(action === 'LOGIN' ? {
-                    login: { stringValue: timeStr },
-                    loginTs: { integerValue: ts }
-                  } : {
-                    logout: { stringValue: timeStr },
-                    logoutTs: { integerValue: ts }
-                  })
-                }
-              }
-            }
-          }
+          fields: userFields
         }
       }
     }
   };
 
-  // Build updateMask field paths
-  const paths = [
-    'date',
-    'dateTs',
-    `users.${empId}.name`,
-    action === 'LOGIN' ? `users.${empId}.login` : `users.${empId}.logout`,
-    action === 'LOGIN' ? `users.${empId}.loginTs` : `users.${empId}.logoutTs`
-  ];
-  const updateMask = paths.map(p => `updateMask.fieldPaths=${p}`).join('&');
+  const updateMask = [...new Set(paths)].map(p => `updateMask.fieldPaths=${p}`).join('&');
   const url = `${docUrl}?${updateMask}`;
 
   await fetch(url, {

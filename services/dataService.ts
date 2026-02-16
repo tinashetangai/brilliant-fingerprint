@@ -249,7 +249,26 @@ export const dataService = {
   },
 
   batchDeleteLogs: async (logIds: string[], onProgress?: (count: number, total: number) => void): Promise<{ count: number }> => {
-    return { count: 0 }; // Deletion from daily map not yet supported via batch
+    if (logIds.length === 0) return { count: 0 };
+    let deletedCount = 0;
+    const chunkSize = 50;
+    for (let i = 0; i < logIds.length; i += chunkSize) {
+        const chunk = logIds.slice(i, i + chunkSize);
+        try {
+            const response = await fetch(`${WORKER_URL}/api/admin/delete-logs`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ logIds: chunk })
+            });
+            if (!response.ok) throw new Error(`Worker Error (${response.status})`);
+            const data = await response.json();
+            if (data.success) {
+                deletedCount += chunk.length;
+                if (onProgress) onProgress(deletedCount, logIds.length);
+            } else throw new Error(data.error || "Unknown worker error");
+        } catch (e: any) { throw new Error(`Batch delete failed: ${e.message}`); }
+    }
+    return { count: deletedCount };
   },
 
   addLog: async (log: Omit<AttendanceLog, 'id'>): Promise<void> => {
@@ -281,13 +300,21 @@ export const dataService = {
     if (snap.exists()) {
       await updateDoc(docRef, updateData);
     } else {
-      await setDoc(docRef, { date: dateStr, users: { [log.subjectId]: {
-        name: log.subjectName,
-        login: log.action === AttendanceAction.LOGIN ? timeStr : null,
-        loginTs: log.action === AttendanceAction.LOGIN ? rawTs : null,
-        logout: log.action === AttendanceAction.LOGOUT ? timeStr : null,
-        logoutTs: log.action === AttendanceAction.LOGOUT ? rawTs : null
-      } } });
+      // Create a base timestamp for sorting (00:00:00 local)
+      const dateBase = new Date(rawTs);
+      dateBase.setHours(0, 0, 0, 0);
+
+      await setDoc(docRef, {
+        date: dateStr,
+        dateTs: dateBase.getTime(),
+        users: { [log.subjectId]: {
+          name: log.subjectName,
+          login: log.action === AttendanceAction.LOGIN ? timeStr : null,
+          loginTs: log.action === AttendanceAction.LOGIN ? rawTs : null,
+          logout: log.action === AttendanceAction.LOGOUT ? timeStr : null,
+          logoutTs: log.action === AttendanceAction.LOGOUT ? rawTs : null
+        } }
+      });
     }
   },
 
@@ -478,8 +505,9 @@ export const dataService = {
   deleteLog: async (id: string, type: 'EMPLOYEE' | 'VISITOR' = 'EMPLOYEE'): Promise<void> => {
     if (type === 'VISITOR') {
       await deleteDoc(doc(db, VISITOR_LOGS_COL, id));
+      return;
     }
-    // Employee log deletion from daily map is complex, skip for now
+    await dataService.batchDeleteLogs([id]);
   },
 
   resetDaysWorked: async (id: string): Promise<void> => { await updateDoc(doc(db, EMPLOYEES_COL, String(id).trim()), { totalDaysWorked: 0 }); },

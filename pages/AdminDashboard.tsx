@@ -311,8 +311,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthenticated, onLogi
     }
 
     const filteredRecords = fullRecords.filter(r => {
-      const d = new Date(r.date);
-      return d.getMonth() === reportMonth && d.getFullYear() === reportYear;
+      const [d, m, y] = r.date.split('/').map(Number);
+      return (m - 1) === reportMonth && y === reportYear;
     });
 
     const monthName = new Date(reportYear, reportMonth).toLocaleString('default', { month: 'long', year: 'numeric' });
