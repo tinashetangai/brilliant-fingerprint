@@ -18,9 +18,10 @@ import {
 import { ref, onValue } from "firebase/database";
 import { db, rtdb } from "./firebase";
 import { Employee, AttendanceLog, LogStatus, AttendanceAction, SystemSettings, Notice, AttendanceSession, Department, InformalLog, FrequentVisitor, OvertimeDecision } from "../types";
+import { SEED_EMPLOYEES } from './seedData';
 
 const EMPLOYEES_COL = "employees";
-const DAILY_LOGS_COL = "daily_logs";
+const DAILY_LOGS_COL = "day_by_day_logs";
 const VISITOR_LOGS_COL = "visitor_logs";
 const INFORMAL_LOGS_COL = "informal_logs";
 const SETTINGS_DOC = "config/system";
@@ -562,5 +563,78 @@ export const dataService = {
     } else {
       await addDoc(collection(db, OVERTIME_DECISIONS_COL), { ...decision, timestamp: Date.now() });
     }
+  },
+
+  ensureSeedEmployeesExist: async (onProgress?: (msg: string) => void): Promise<void> => {
+    const existingEmployees = await dataService.getEmployees();
+    const existingPins = new Set(existingEmployees.map(e => String(e.pin).trim()));
+
+    let addedCount = 0;
+    for (const emp of SEED_EMPLOYEES) {
+      if (!existingPins.has(String(emp.pin).trim())) {
+        if (onProgress) onProgress(`Adding employee: ${emp.name}...`);
+        await dataService.addEmployee({
+          name: emp.name,
+          pin: emp.pin,
+          department: emp.department,
+          isSales: false
+        });
+        addedCount++;
+      }
+    }
+    if (onProgress && addedCount > 0) onProgress(`Added ${addedCount} new employees.`);
+  },
+
+  seedHistoricalLogsDirectly: async (onProgress?: (msg: string) => void): Promise<{ count: number }> => {
+    await dataService.ensureSeedEmployeesExist(onProgress);
+
+    const start = new Date(2026, 1, 1); // Feb 1, 2026
+    const end = new Date(2026, 1, 15);   // Feb 15, 2026
+
+    let totalLogs = 0;
+
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const dateStr = formatDate(d);
+      if (onProgress) onProgress(`Generating logs for ${dateStr}...`);
+
+      const yearNum = d.getFullYear();
+      const monthNum = d.getMonth();
+      const dayNum = d.getDate();
+
+      const users: Record<string, any> = {};
+
+      for (const emp of SEED_EMPLOYEES) {
+        // Random Login: 07:00 - 08:00 CAT (05:00 - 06:00 UTC)
+        const loginMin = Math.floor(Math.random() * 60);
+        const loginTs = Date.UTC(yearNum, monthNum, dayNum, 5, loginMin, Math.floor(Math.random() * 60));
+        const loginTimeStr = `07:${String(loginMin).padStart(2, '0')}`;
+
+        // Random Logout: 16:00 - 18:00 CAT (14:00 - 16:00 UTC)
+        const logoutHourCAT = 16 + Math.floor(Math.random() * 2);
+        const logoutMin = Math.floor(Math.random() * 60);
+        const logoutTs = Date.UTC(yearNum, monthNum, dayNum, logoutHourCAT - 2, logoutMin, Math.floor(Math.random() * 60));
+        const logoutTimeStr = `${String(logoutHourCAT).padStart(2, '0')}:${String(logoutMin).padStart(2, '0')}`;
+
+        users[emp.pin] = {
+          name: emp.name,
+          login: loginTimeStr,
+          loginTs: loginTs,
+          logout: logoutTimeStr,
+          logoutTs: logoutTs
+        };
+        totalLogs += 2;
+      }
+
+      const docRef = doc(db, DAILY_LOGS_COL, dateStr);
+      const dateBase = new Date(Date.UTC(yearNum, monthNum, dayNum, 0, 0, 0));
+
+      await setDoc(docRef, {
+        date: dateStr,
+        dateTs: dateBase.getTime(),
+        users: users
+      });
+    }
+
+    return { count: totalLogs };
   }
 };

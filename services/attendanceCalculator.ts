@@ -25,7 +25,8 @@ const timeStringToDecimal = (timeStr: string): number => {
 export const attendanceCalculator = {
 
   /**
-   * Main processor: Converts raw logs into calculated daily records
+   * Main processor: Converts raw logs into calculated daily records.
+   * Groups multiple sessions on the same date into a single DailyWorkRecord.
    */
   calculateEmployeeRecords: (
     employeeId: string,
@@ -36,9 +37,15 @@ export const attendanceCalculator = {
     
     // 1. Group Logs into Sessions (Login -> Logout pairs)
     const employeeLogs = logs.filter(l => String(l.subjectId).trim() === String(employeeId).trim());
-    // Mock employee object for the buildSessions signature
     const mockEmp = { id: employeeId, department: '', name: '' } as any; 
     const sessions = dataService.buildSessions(employeeLogs, [mockEmp]);
+
+    // 2. Group Sessions by Date
+    const sessionsByDate: Record<string, AttendanceSession[]> = {};
+    sessions.forEach(s => {
+      if (!sessionsByDate[s.date]) sessionsByDate[s.date] = [];
+      sessionsByDate[s.date].push(s);
+    });
 
     const dailyRecords: DailyWorkRecord[] = [];
 
@@ -49,126 +56,117 @@ export const attendanceCalculator = {
     const lunchDed = (settings?.lunchDurationMinutes || 0) / 60;
     const breakDed = (settings?.breakDurationMinutes || 0) / 60;
 
-    // Time Context for Live Calculations
-    // Shift the reference "now" by the display offset so that Live durations match displayed timestamps
     const nowRaw = Date.now();
     const nowAdjusted = new Date(nowRaw - DISPLAY_OFFSET);
-
-    // ENABLE SECONDS PRECISION FOR LIVE COUNTING
     const formatter = new Intl.DateTimeFormat('en-GB', { 
-      hour: '2-digit', 
-      minute: '2-digit', 
-      second: '2-digit',
-      hour12: false, 
-      timeZone: 'Africa/Harare' 
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'Africa/Harare'
     });
-    
     const [nowH, nowM, nowS] = formatter.format(nowAdjusted).split(':').map(Number);
-    // Include seconds in the decimal calculation (1 hour = 3600 seconds)
     const nowDecimal = nowH + (nowM / 60) + (nowS / 3600);
-    
     const todayDateKey = formatDate(nowAdjusted);
 
-    sessions.forEach(session => {
-      let inDecimal = timeStringToDecimal(session.timeIn);
-      let outDecimal = 0;
+    Object.entries(sessionsByDate).forEach(([dateKey, daySessions]) => {
+      let totalRawHours = 0;
+      let totalRegularHoursBeforeDed = 0;
+      let totalPotentialOvertime = 0;
+      let earliestIn = '---';
+      let latestOut = '---';
       let isLive = false;
+      let hasNightShift = false;
+      let hasMissingOut = false;
 
-      // --- LIVE SESSION & ORPHAN HANDLING ---
-      if (session.timeOut === 'ONSITE') {
-        if (session.date === todayDateKey) {
-          // It's today, so they are currently working
-          outDecimal = nowDecimal;
-          isLive = true;
+      daySessions.forEach(session => {
+        let inDecimal = timeStringToDecimal(session.timeIn);
+        let outDecimal = 0;
+        let sessionIsLive = false;
+
+        if (session.timeOut === 'ONSITE') {
+          if (session.date === todayDateKey) {
+            outDecimal = nowDecimal;
+            sessionIsLive = true;
+            isLive = true;
+          } else {
+            hasMissingOut = true;
+            return;
+          }
         } else {
-          // It's a past date (orphan session). 
-          dailyRecords.push({
-            date: session.date,
-            employeeId,
-            startTime: session.timeIn,
-            endTime: 'MISSING', 
-            rawHours: 0,
-            regularHours: 0,
-            overtimeHours: 0,
-            overtimeStatus: OvertimeStatus.PENDING,
-            isNightShift: false,
-            totalContributedHours: 0,
-            dayValue: 0
-          });
-          return; 
+          outDecimal = timeStringToDecimal(session.timeOut);
         }
-      } else {
-        outDecimal = timeStringToDecimal(session.timeOut);
+
+        if (earliestIn === '---' || (session.timeIn !== '---' && inDecimal < timeStringToDecimal(earliestIn))) {
+          earliestIn = session.timeIn;
+        }
+        if (latestOut === '---' || (session.timeOut !== 'ONSITE' && outDecimal > timeStringToDecimal(latestOut))) {
+          latestOut = session.timeOut === 'ONSITE' ? 'Live' : session.timeOut;
+        }
+
+        const isNightShift = inDecimal >= dayEndDecimal || inDecimal < (dayStartDecimal - 2);
+        if (isNightShift) hasNightShift = true;
+
+        if (isNightShift) {
+          if (outDecimal < inDecimal) outDecimal += 24;
+          totalRegularHoursBeforeDed += (outDecimal - inDecimal);
+        } else {
+          const effectiveStart = Math.max(inDecimal, dayStartDecimal);
+          const effectiveEndRegular = Math.min(outDecimal, dayEndDecimal);
+
+          if (outDecimal >= dayStartDecimal || sessionIsLive) {
+            totalRegularHoursBeforeDed += Math.max(0, effectiveEndRegular - effectiveStart);
+            if (outDecimal > dayEndDecimal) {
+              totalPotentialOvertime += (outDecimal - dayEndDecimal);
+            }
+          }
+        }
+        totalRawHours += (outDecimal > inDecimal ? outDecimal : outDecimal + 24) - inDecimal;
+      });
+
+      if (hasMissingOut && daySessions.length === 1 && daySessions[0].timeOut === 'ONSITE') {
+        dailyRecords.push({
+          date: dateKey, employeeId, startTime: daySessions[0].timeIn, endTime: 'MISSING',
+          rawHours: 0, regularHours: 0, overtimeHours: 0, overtimeStatus: OvertimeStatus.PENDING,
+          isNightShift: false, totalContributedHours: 0, dayValue: 0
+        });
+        return;
       }
 
-      // Night Shift Detection
-      const isNightShift = inDecimal >= dayEndDecimal || inDecimal < (dayStartDecimal - 2); 
-
-      let regularHours = 0;
-      let potentialOvertime = 0;
-
-      if (isNightShift) {
-        // --- NIGHT SHIFT RULES ---
-        if (outDecimal < inDecimal) outDecimal += 24; 
-        regularHours = outDecimal - inDecimal;
-        
-      } else {
-        // --- DAY SHIFT RULES ---
-        const effectiveStart = Math.max(inDecimal, dayStartDecimal);
-        let effectiveEndRegular = Math.min(outDecimal, dayEndDecimal);
-        
-        if (outDecimal < dayStartDecimal && !isLive) return; 
-
-        let duration = Math.max(0, effectiveEndRegular - effectiveStart);
-
-        if (duration > 5) {
-          duration = Math.max(0, duration - lunchDed - breakDed);
-        }
-
-        regularHours = duration;
-
-        if (outDecimal > dayEndDecimal) {
-          potentialOvertime = outDecimal - dayEndDecimal;
-        }
+      // Apply deductions to daily total (day shifts only)
+      let finalRegularHours = totalRegularHoursBeforeDed;
+      if (!hasNightShift) {
+        finalRegularHours = Math.max(0, totalRegularHoursBeforeDed - lunchDed - breakDed);
       }
 
       const decision = decisions.find(dec => 
-        String(dec.employeeId).trim() === String(employeeId).trim() && 
-        dec.date === session.date
+        String(dec.employeeId).trim() === String(employeeId).trim() && dec.date === dateKey
       );
 
       let finalOvertime = 0;
       let otStatus = OvertimeStatus.PENDING;
 
-      if (potentialOvertime > 0.05) { 
+      if (totalPotentialOvertime > 0.05) {
         if (decision) {
           otStatus = decision.status;
-          if (decision.status === OvertimeStatus.APPROVED) {
-            finalOvertime = decision.hours; 
-          } else {
-            finalOvertime = 0;
-          }
+          finalOvertime = decision.status === OvertimeStatus.APPROVED ? decision.hours : 0;
         } else {
-          finalOvertime = 0; 
           otStatus = OvertimeStatus.PENDING;
+          finalOvertime = 0;
         }
       } else {
-        otStatus = OvertimeStatus.APPROVED; 
+        otStatus = OvertimeStatus.APPROVED;
       }
 
-      const totalContributed = regularHours + finalOvertime;
+      const totalContributed = finalRegularHours + finalOvertime;
       const dayValue = totalContributed / standardDayLength;
 
       dailyRecords.push({
-        date: session.date,
+        date: dateKey,
         employeeId,
-        startTime: session.timeIn,
-        endTime: isLive ? 'Live' : session.timeOut,
-        rawHours: (outDecimal > inDecimal ? outDecimal : outDecimal + 24) - inDecimal,
-        regularHours: regularHours,
-        overtimeHours: potentialOvertime,
+        startTime: earliestIn,
+        endTime: isLive ? 'Live' : latestOut,
+        rawHours: totalRawHours,
+        regularHours: finalRegularHours,
+        overtimeHours: totalPotentialOvertime,
         overtimeStatus: otStatus,
-        isNightShift,
+        isNightShift: hasNightShift,
         totalContributedHours: totalContributed,
         dayValue: dayValue
       });
