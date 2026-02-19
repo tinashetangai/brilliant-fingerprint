@@ -159,25 +159,35 @@ async function handleAutoLogout(env: Env) {
   try {
     const token = await getToken(env);
     const nowRaw = Date.now();
+
+    // If running at midnight (22:00 UTC / 00:00 CAT), we want to logout people from "yesterday"
+    // Subtract 2 hours to be safely in the previous day context
+    const referenceTime = nowRaw - (2 * 3600000);
     const harareDateFormatter = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Africa/Harare' });
-    const dateStr = harareDateFormatter.format(new Date(nowRaw)).replace(/\./g, '');
+    const dateStr = harareDateFormatter.format(new Date(referenceTime)).replace(/\./g, '');
 
     const settings = await getSystemSettings(env, token);
-    if (!settings?.dayEnd) return;
+    // Even if no settings, we still logout at end of day
 
     const dailyLog = await getDailyLog(env, token, dateStr);
     if (!dailyLog || !dailyLog.users) return;
 
     for (const [empId, userEntry] of Object.entries(dailyLog.users) as any) {
       if (userEntry.login && !userEntry.logout) {
-        const timeStr = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Harare', hour12: false }).format(new Date(nowRaw));
-        await patchDailyLog(env, token, dateStr, empId, userEntry.name, 'LOGOUT', timeStr, nowRaw);
+        // Use 23:59 of the reference day to close the session properly
+        const logoutDate = new Date(referenceTime);
+        logoutDate.setUTCHours(21, 59, 0, 0); // 23:59 CAT
+        const logoutTs = logoutDate.getTime();
+        const timeStr = "23:59";
+
+        await patchDailyLog(env, token, dateStr, empId, userEntry.name, 'LOGOUT', timeStr, logoutTs);
         await updateRealtimeDb(env, token, {
            subjectId: empId,
            subjectName: userEntry.name,
            name: userEntry.name,
            action: 'LOGOUT',
-           timestamp: nowRaw
+           timestamp: logoutTs,
+           source: 'AUTO_SYSTEM_CRON'
         });
       }
     }

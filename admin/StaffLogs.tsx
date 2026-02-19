@@ -3,7 +3,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { Search, ArrowRight, Download, CheckCircle2, Trash2, LogIn, LogOut, Clock, Calendar, Cpu, AlertTriangle, Edit3, UserCheck, X, Square, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AttendanceLog, AttendanceSession, Employee, AttendanceAction, LogStatus } from '../types';
 import { dataService } from '../services/dataService';
-import { formatDate } from '../services/dateUtils';
+import { formatDate, parseDateStr } from '../services/dateUtils';
 
 interface StaffLogsProps {
   logs: AttendanceLog[];
@@ -176,19 +176,21 @@ const StaffLogs: React.FC<StaffLogsProps> = ({
     if (!editingSession) return;
     setIsSaving(true);
     try {
-        const baseDate = new Date(editingSession.date);
+        const baseDate = parseDateStr(editingSession.date);
+        if (!baseDate) throw new Error("Invalid Date Context");
 
         if (editTimeIn && editingSession.loginLogId) {
             const [h, min] = editTimeIn.split(':').map(Number);
             const newTs = new Date(baseDate);
-            newTs.setHours(h, min, 0, 0);
+            // Africa/Harare is UTC+2
+            newTs.setUTCHours(h - 2, min, 0, 0);
             await dataService.updateLogTimestamp(editingSession.loginLogId, newTs.getTime());
         }
 
         if (editTimeOut) {
             const [h, min] = editTimeOut.split(':').map(Number);
             const newTs = new Date(baseDate);
-            newTs.setHours(h, min, 0, 0);
+            newTs.setUTCHours(h - 2, min, 0, 0);
 
             if (editingSession.logoutLogId) {
                 await dataService.updateLogTimestamp(editingSession.logoutLogId, newTs.getTime());

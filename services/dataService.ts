@@ -559,6 +559,25 @@ export const dataService = {
     await dataService.batchDeleteLogs([id]);
   },
 
+  updateLogTimestamp: async (id: string, newTs: number): Promise<void> => {
+    const parts = id.split('_');
+    if (parts.length < 3) return;
+    const userId = parts[0];
+    const type = parts[1]; // 'login' or 'logout'
+    const dateStr = parts[2]; // date string "DD MMM YYYY"
+
+    const docRef = doc(db, DAILY_LOGS_COL, dateStr);
+    const timeStr = new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Harare', hour12: false
+    }).format(new Date(newTs));
+
+    const fieldPrefix = `users.${userId}`;
+    await updateDoc(docRef, {
+      [`${fieldPrefix}.${type}`]: timeStr,
+      [`${fieldPrefix}.${type}Ts`]: newTs
+    });
+  },
+
   resetDaysWorked: async (id: string): Promise<void> => { await updateDoc(doc(db, EMPLOYEES_COL, String(id).trim()), { totalDaysWorked: 0 }); },
 
   getDepartments: async (): Promise<Department[]> => {
