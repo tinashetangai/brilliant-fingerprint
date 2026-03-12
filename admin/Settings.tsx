@@ -262,16 +262,38 @@ const Settings: React.FC<SettingsProps> = ({
   };
 
   const handleRangeSeed = async () => {
-    if (!confirm(`This will generate random logs (07:00-08:00 & 16:00-18:00) for the hardcoded employee list from Feb 1 to Feb 15, 2026 directly to the database. Continue?`)) return;
+    if (!confirm(`This will generate random logs (07:00-08:00 & 16:00-18:00) for the hardcoded employee list from Feb 24 to Mar 11, 2026, SKIPPING Sundays and Mondays, directly to the database. Continue?`)) return;
     setBatchLoading(true);
-    setPurgeLogs(["Initializing direct historical seed..."]);
-
+    setPurgeLogs(["Initializing direct historical seed (skipping Sun & Mon)..."]);
+    
     try {
-        const res = await dataService.seedHistoricalLogsDirectly((msg) => {
-            setPurgeLogs(prev => [...prev.slice(-15), `[${new Date().toLocaleTimeString()}] ${msg}`]);
-        });
+        // Calculate date range
+        const startDate = new Date(2026, 1, 25); // Feb 24, 2026 (month is 0-indexed, so 1 = February)
+        const endDate = new Date(2026, 2, 11); // Mar 11, 2026 (2 = March)
+        
+        // Count how many days we'll actually process (excluding Sun & Mon)
+        let workingDaysCount = 0;
+        const tempDate = new Date(startDate);
+        while (tempDate <= endDate) {
+            const dayOfWeek = tempDate.getDay(); // 0 = Sunday, 1 = Monday, 6 = Saturday
+            if (dayOfWeek !== 0 && dayOfWeek !== 1) { // Skip Sunday (0) and Monday (1)
+                workingDaysCount++;
+            }
+            tempDate.setDate(tempDate.getDate() + 1);
+        }
+        
+        setPurgeLogs(prev => [...prev, `Range: Feb 24 - Mar 11, 2026 (${workingDaysCount} working days, excluding Sun/Mon)`]);
+        
+        // Pass the date range to the service function
+        const res = await dataService.seedHistoricalLogsDirectly(
+            (msg) => {
+                setPurgeLogs(prev => [...prev.slice(-15), `[${new Date().toLocaleTimeString()}] ${msg}`]);
+            },
+            startDate,
+            endDate
+        );
 
-        alert(`Success! Generated ${res.count} records directly in the database.`);
+        alert(`Success! Generated ${res.count} records directly in the database for working days only (excluding Sundays and Mondays).`);
         onRefresh();
     } catch (e: any) {
         console.error(e);
@@ -279,7 +301,7 @@ const Settings: React.FC<SettingsProps> = ({
     } finally {
         setBatchLoading(false);
     }
-  };
+};
 
   useEffect(() => {
     const handleInstallPrompt = (e: Event) => {
