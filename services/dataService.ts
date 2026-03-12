@@ -655,12 +655,18 @@ export const dataService = {
   seedHistoricalLogsDirectly: async (onProgress?: (msg: string) => void): Promise<{ count: number }> => {
     await dataService.ensureSeedEmployeesExist(onProgress);
 
-    const start = new Date(2026, 1, 1); // Feb 1, 2026
-    const end = new Date(2026, 1, 15);   // Feb 15, 2026
+    const start = new Date(2026, 0, 7); // Jan 7, 2026
+    const end = new Date(2026, 2, 12);   // Mar 12, 2026
 
     let totalLogs = 0;
 
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      // Skip Weekends
+      if (d.getDay() === 0 || d.getDay() === 6) continue;
+
+      // Skip already existing Feb 1 - Feb 24
+      if (d.getMonth() === 1 && d.getDate() >= 1 && d.getDate() <= 24) continue;
+
       const dateStr = formatDate(d);
       if (onProgress) onProgress(`Generating logs for ${dateStr}...`);
 
