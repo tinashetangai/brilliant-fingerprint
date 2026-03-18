@@ -262,7 +262,7 @@ const Settings: React.FC<SettingsProps> = ({
   };
 
   const handleRangeSeed = async () => {
-    if (!confirm(`This will generate random logs for the hardcoded employee list for Jan 7-31 and Feb 25-Mar 12, 2026 (skipping weekends). Continue?`)) return;
+    if (!confirm(`This will generate random logs for the hardcoded employee list for Jan 7-31, Feb 25-Mar 12 and Mar 16-17, 2026 (skipping weekends). Continue?`)) return;
     setBatchLoading(true);
     setPurgeLogs(["Initializing direct historical seed..."]);
 
@@ -732,7 +732,7 @@ const Settings: React.FC<SettingsProps> = ({
                             </div>
 
                             <p className="text-[10px] font-bold text-purple-600">
-                                Generates random <b>Logins (07:00-08:00)</b> and <b>Logouts (16:00-18:00)</b> for <b>HARDCODED</b> employees for <b>Jan 7-31</b> and <b>Feb 25 - Mar 12</b> (skipping weekends).
+                                Generates random <b>Logins (07:00-08:00)</b> and <b>Logouts (16:00-18:00)</b> for <b>HARDCODED</b> employees for <b>Jan 7-31</b>, <b>Feb 25-Mar 12</b> and <b>Mar 16-17</b> (skipping weekends).
                                 <br/><br/>
                                 This operation writes <b>DIRECTLY</b> to the database (day_by_day_logs) and bypasses the worker.
                             </p>

@@ -656,7 +656,7 @@ export const dataService = {
     await dataService.ensureSeedEmployeesExist(onProgress);
 
     const start = new Date(2026, 0, 7); // Jan 7, 2026
-    const end = new Date(2026, 2, 12);   // Mar 12, 2026
+    const end = new Date(2026, 2, 17);   // Mar 17, 2026
 
     let totalLogs = 0;
 
@@ -666,6 +666,9 @@ export const dataService = {
 
       // Skip already existing Feb 1 - Feb 24
       if (d.getMonth() === 1 && d.getDate() >= 1 && d.getDate() <= 24) continue;
+
+      // Skip gap between Mar 12 and Mar 16
+      if (d.getMonth() === 2 && d.getDate() >= 13 && d.getDate() <= 15) continue;
 
       const dateStr = formatDate(d);
       if (onProgress) onProgress(`Generating logs for ${dateStr}...`);
